@@ -7,6 +7,7 @@ import AdminInventoryPage from '../pages/admin/AdminInventoryPage';
 import AdminOrdersPage from '../pages/admin/AdminOrdersPage';
 import AdminShipmentsPage from '../pages/admin/AdminShipmentsPage';
 import AdminRefundsPage from '../pages/admin/AdminRefundsPage';
+import AdminSupportPage from '../pages/admin/AdminSupportPage';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
 import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
 
@@ -133,6 +134,7 @@ export default function AdminView() {
             {activeTab === 'orders' && <AdminOrdersPage />}
             {activeTab === 'shipments' && <AdminShipmentsPage />}
             {activeTab === 'refunds' && <AdminRefundsPage />}
+            {activeTab === 'support' && <AdminSupportPage />}
             {activeTab === 'users' && <AdminUsersPage />}
             {activeTab === 'audit' && <AdminAuditLogsPage />}
           </div>

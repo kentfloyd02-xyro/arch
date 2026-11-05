@@ -7,7 +7,8 @@ import {
   Truck,
   RotateCcw,
   Users,
-  ClipboardList
+  ClipboardList,
+  MessageCircle
 } from 'lucide-react';
 
 export function useAdminViewController() {
@@ -29,6 +30,7 @@ export function useAdminViewController() {
     { id: 'orders', label: 'Orders', icon: FileText, count: orders.length },
     { id: 'shipments', label: 'Delivery Status', icon: Truck, count: orders.length },
     { id: 'refunds', label: 'Returns & Refunds', icon: RotateCcw, count: refundOrdersCount },
+    { id: 'support', label: 'Help Desk', icon: MessageCircle },
     { id: 'users', label: 'Manage Users', icon: Users, count: customerEmails.size },
     { id: 'audit', label: 'Audit Logs', icon: ClipboardList }
   ];

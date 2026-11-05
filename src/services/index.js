@@ -8,6 +8,7 @@ export { otpService } from './otpService';
 export { projectService } from './projectService';
 export { uploadService } from './uploadService';
 export { auditService } from './auditService';
+export { supportService } from './supportService';
 
 import { authService } from './authService';
 import { productService } from './productService';
@@ -18,6 +19,7 @@ import { otpService } from './otpService';
 import { projectService } from './projectService';
 import { uploadService } from './uploadService';
 import { auditService } from './auditService';
+import { supportService } from './supportService';
 
 export const api = {
   ...authService,
@@ -28,7 +30,8 @@ export const api = {
   ...otpService,
   ...projectService,
   ...uploadService,
-  ...auditService
+  ...auditService,
+  ...supportService
 };
 
 export default api;
