@@ -27,7 +27,7 @@ export default function AccountSettingsModal() {
     company: '',
     email: '',
     phone: '',
-    address: 'Felix Ave. Brgy. Sto. Domingo, Cainta, Rizal / Metro Manila Site',
+    address: '',
     smsAlerts: true,
     emailReceipts: true
   });
@@ -35,11 +35,11 @@ export default function AccountSettingsModal() {
   useEffect(() => {
     if (currentUser) {
       setFormData({
-        name: currentUser.name || 'Demo Customer',
-        company: currentUser.company || 'Sample Construction Company',
-        email: currentUser.email || 'customer@example.test',
+        name: currentUser.name || '',
+        company: currentUser.company || '',
+        email: currentUser.email || '',
         phone: currentUser.phone || '',
-        address: currentUser.address || 'Felix Ave. Brgy. Sto. Domingo, Cainta, Rizal / Metro Manila Site',
+        address: currentUser.address || currentUser.defaultAddress || currentUser.default_address || '',
         smsAlerts: true,
         emailReceipts: true
       });

@@ -25,7 +25,14 @@ export function useCustomerProfilePageController() {
     }
   };
 
-  const [addresses, setAddresses] = useState(() => readLocal('addresses', []));
+  const [addresses, setAddresses] = useState(() => {
+    const list = readLocal('addresses', []);
+    const userAddr = currentUser?.address || currentUser?.defaultAddress;
+    if (list.length === 0 && userAddr && userAddr.trim()) {
+      return [{ id: 'primary', label: 'Primary Delivery Address', address: userAddr.trim() }];
+    }
+    return list;
+  });
   const [addressDraft, setAddressDraft] = useState({ label: '', address: '' });
 
   const saveAddresses = (next) => {

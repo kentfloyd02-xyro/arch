@@ -2,9 +2,12 @@ import { request } from './client';
 
 function normalizeUser(u) {
   if (!u) return u;
+  const phone = u.phone_number || u.phone || u.phoneNumber || '';
   return {
     ...u,
     name: u.full_name || u.name || 'User',
+    phone,
+    phoneNumber: phone,
     role: (u.global_role === 'superadmin' || u.global_role === 'admin' || u.role === 'admin') ? 'admin' : (u.role || 'customer')
   };
 }
@@ -147,10 +150,15 @@ export const authService = {
   },
 
   register: async (userData) => {
+    const cleanPhone = (userData.phone || userData.phoneNumber || '').replace(/\D/g, '').slice(0, 11);
     const payload = {
       fullName: userData.name || userData.fullName,
       email: userData.email,
       password: userData.password,
+      phoneNumber: cleanPhone,
+      phone: cleanPhone,
+      company: userData.company || '',
+      defaultAddress: userData.defaultAddress || '',
       role: 'customer'
     };
 
@@ -159,10 +167,21 @@ export const authService = {
       body: JSON.stringify(payload)
     });
 
-    if (res?.user) {
-      res.user = normalizeUser(res.user);
+    const user = res?.user || res?.data?.user;
+    const token = res?.token || res?.data?.token;
+
+    const normalizedUser = normalizeUser(user);
+    if (token) {
+      localStorage.setItem('archon_token', token);
     }
-    return res;
+    if (normalizedUser) {
+      localStorage.setItem('archon_user', JSON.stringify(normalizedUser));
+    }
+
+    return {
+      token,
+      user: normalizedUser
+    };
   },
 
   logout: async () => {

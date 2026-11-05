@@ -8,7 +8,8 @@ import {
   CreditCard, 
   Lock, 
   Mail, 
-  Building
+  Building,
+  MapPin
 } from 'lucide-react';
 
 export default function CheckoutModal() {
@@ -27,6 +28,7 @@ export default function CheckoutModal() {
     finalTotal,
     createOrder,
     currentUser,
+    updateUserProfile,
     triggerOtp,
     setOtpState,
     showToast,
@@ -49,12 +51,41 @@ export default function CheckoutModal() {
   // Email verification status
   const [verifiedEmail, setVerifiedEmail] = useState('');
 
+  const storagePrefix = `archon-customer-${currentUser?.id || currentUser?.email || 'guest'}`;
+
+  const getSavedAddressBook = () => {
+    const list = [];
+    const userAddr = currentUser?.address || currentUser?.defaultAddress || currentUser?.default_address;
+    if (userAddr && userAddr.trim()) {
+      list.push({ id: 'primary', label: 'Default Account Address', address: userAddr.trim() });
+    }
+    try {
+      const raw = localStorage.getItem(`${storagePrefix}-addresses`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((item, idx) => {
+            const addr = typeof item === 'string' ? item : item?.address;
+            const label = typeof item === 'string' ? `Saved Site #${idx + 1}` : item?.label || 'Saved Site';
+            if (addr && addr.trim() && !list.some(l => l.address.toLowerCase() === addr.trim().toLowerCase())) {
+              list.push({ id: item?.id || `book-${idx}`, label, address: addr.trim() });
+            }
+          });
+        }
+      }
+    } catch {}
+    return list;
+  };
+
+
   useEffect(() => {
     if (!isCheckoutOpen) return;
     setCustomerName(currentUser?.name || '');
     setCustomerEmail(currentUser?.email || '');
     setCustomerPhone(currentUser?.phone || '');
-    setDeliveryAddress('');
+    const book = getSavedAddressBook();
+    const initialAddress = book.length > 0 ? book[0].address : (currentUser?.address || currentUser?.defaultAddress || '');
+    setDeliveryAddress(initialAddress || '');
     setDeliveryNotes('');
     setPaymentMethod('COD');
     setGcashRefNumber('');
@@ -170,6 +201,31 @@ export default function CheckoutModal() {
 
     const newOrder = createOrder(orderData);
     if (newOrder) {
+      const trimmedAddress = deliveryAddress.trim();
+      if (currentUser && trimmedAddress) {
+        if (updateUserProfile) {
+          updateUserProfile({
+            address: trimmedAddress,
+            defaultAddress: trimmedAddress
+          });
+        }
+        try {
+          const raw = localStorage.getItem(`${storagePrefix}-addresses`);
+          let list = raw ? JSON.parse(raw) : [];
+          if (!Array.isArray(list)) list = [];
+          const exists = list.some(item => (typeof item === 'string' ? item : item?.address || '').toLowerCase() === trimmedAddress.toLowerCase());
+          if (!exists) {
+            list.unshift({
+              id: `addr-${Date.now()}`,
+              label: 'Job Site Delivery Address',
+              address: trimmedAddress
+            });
+            localStorage.setItem(`${storagePrefix}-addresses`, JSON.stringify(list));
+          }
+        } catch (err) {
+          console.warn('Address book sync error:', err);
+        }
+      }
       setIsCheckoutOpen(false);
       setOtpState(prev => ({ ...prev, isVerified: false, isOpen: false }));
       setSelectedOrderForTracking(newOrder);
@@ -285,9 +341,45 @@ export default function CheckoutModal() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Delivery Address / Job Site Depot *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Delivery Address / Job Site Depot *
+                </label>
+                {getSavedAddressBook().length > 0 && (
+                  <span className="text-[10px] text-blue-600 font-bold flex items-center gap-1">
+                    <MapPin className="w-3 h-3" /> Address Book Available
+                  </span>
+                )}
+              </div>
+
+              {/* Address Book Quick-Select Bar */}
+              {getSavedAddressBook().length > 0 && (
+                <div className="mb-2 p-2 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-1.5">
+                  <div className="text-[10px] font-bold text-blue-900 flex items-center justify-between">
+                    <span>Select from your saved Address Book:</span>
+                    <span className="text-[9px] text-blue-600 font-normal">Click to apply</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                    {getSavedAddressBook().map((item, idx) => {
+                      const isSelected = deliveryAddress.trim().toLowerCase() === item.address.trim().toLowerCase();
+                      return (
+                        <button
+                          key={item.id || idx}
+                          type="button"
+                          onClick={() => setDeliveryAddress(item.address)}
+                          className={`px-2.5 py-1 text-[11px] rounded-lg border font-medium transition-all text-left truncate max-w-full flex items-center gap-1.5 ${isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-xs' : 'bg-white hover:bg-blue-100/70 text-slate-700 border-blue-200 hover:border-blue-300'}`}
+                          title={item.address}
+                        >
+                          <MapPin className={`w-3 h-3 shrink-0 ${isSelected ? 'text-white' : 'text-blue-500'}`} />
+                          <span className="font-bold shrink-0">{item.label}:</span>
+                          <span className="truncate">{item.address}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <textarea
                 required
                 rows={2}
@@ -296,6 +388,9 @@ export default function CheckoutModal() {
                 placeholder="National Highway km 42, Cainta / San Simon Project Depot, Gate 2..."
                 className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
               />
+              <p className="text-[10px] text-slate-400 mt-1">
+                This address will automatically be saved to your Account Settings and Address Book upon placing your order.
+              </p>
             </div>
 
             <div>

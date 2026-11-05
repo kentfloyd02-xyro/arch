@@ -2,13 +2,13 @@ import { request } from './client';
 
 export const otpService = {
   sendOtp: (email) =>
-    request('/otp/send', {
+    request('/auth/resend-otp', {
       method: 'POST',
       body: JSON.stringify({ email })
     }),
 
   verifyOtp: (email, code) =>
-    request('/otp/verify', {
+    request('/auth/verify-otp', {
       method: 'POST',
       body: JSON.stringify({ email, code })
     })

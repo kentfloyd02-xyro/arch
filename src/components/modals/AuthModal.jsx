@@ -120,7 +120,6 @@ export default function AuthModal() {
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regPhone, setRegPhone] = useState('');
-  const [regCompany, setRegCompany] = useState('');
   const [regAddress, setRegAddress] = useState('');
 
   // Timer countdown for overall OTP expiration
@@ -400,8 +399,7 @@ export default function AuthModal() {
         email: regEmail.trim().toLowerCase(),
         password: regPassword,
         phone: regPhone.trim(),
-        company: regCompany.trim(),
-        defaultAddress: regAddress.trim()
+        defaultAddress: regAddress.trim() || null
       });
       setLoading(false);
 
@@ -869,13 +867,20 @@ export default function AuthModal() {
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-700">Mobile Phone</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700">Mobile Phone</label>
+                  <span className="text-[10px] text-slate-400 font-mono">{regPhone.length}/11</span>
+                </div>
                 <input
-                  type="text"
+                  type="tel"
+                  maxLength={11}
                   value={regPhone}
-                  onChange={(e) => setRegPhone(e.target.value)}
-                  placeholder="0917 123 4567"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
+                    setRegPhone(clean);
+                  }}
+                  placeholder="09171234567"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 font-mono tracking-wider"
                 />
               </div>
             </div>
@@ -884,23 +889,15 @@ export default function AuthModal() {
             <PasswordChecklist password={regPassword} />
 
             <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Company / Contractor Name</label>
-              <input
-                type="text"
-                value={regCompany}
-                onChange={(e) => setRegCompany(e.target.value)}
-                placeholder="e.g. Mega Infrastructure Builders Corp."
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Primary Delivery Address / Depot</label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-700">Primary Delivery Address / Depot</label>
+                <span className="text-[10px] text-slate-400 font-semibold">(Optional)</span>
+              </div>
               <input
                 type="text"
                 value={regAddress}
                 onChange={(e) => setRegAddress(e.target.value)}
-                placeholder="Depot address or project location"
+                placeholder="Depot address or project location (optional)"
                 className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
               />
             </div>

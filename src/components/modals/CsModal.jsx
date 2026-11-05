@@ -14,7 +14,8 @@ import {
   FileText, 
   CreditCard,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from 'lucide-react';
 
 const QUICK_TOPICS = [
@@ -63,29 +64,241 @@ const QUICK_TOPICS = [
 ];
 
 export default function CsModal() {
-  const { isCsOpen, setIsCsOpen, currentUser, products = [], orders = [] } = useApp();
+  const { isCsOpen, setIsCsOpen, setIsAuthOpen, currentUser, products = [], orders = [] } = useApp();
   const [vouchers, setVouchers] = useState([]);
   const [vouchersLoaded, setVouchersLoaded] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      sender: 'bot',
-      text: 'Good day! Choose a prepared topic for an instant answer, or type a question to create a support ticket for the admin team.',
-      time: 'Just now'
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [activeInquiryId, setActiveInquiryId] = useState(null);
-  const [ticketClosed, setTicketClosed] = useState(false);
-  const [guestEmail, setGuestEmail] = useState('');
-  const [guestAccessToken, setGuestAccessToken] = useState('');
   const messagesEndRef = useRef(null);
+
+  const userStorageKey = currentUser?.id || currentUser?._id || currentUser?.email || null;
+  const ticketStorageKey = userStorageKey ? `archon_active_support_inquiry_${userStorageKey}` : null;
+  const draftChatKey = userStorageKey ? `archon_draft_support_chat_${userStorageKey}` : null;
+
+  const [activeInquiryId, setActiveInquiryId] = useState(() => {
+    if (!userStorageKey) return null;
+    try {
+      return localStorage.getItem(`archon_active_support_inquiry_${userStorageKey}`) || null;
+    } catch {
+      return null;
+    }
+  });
+  const [ticketClosed, setTicketClosed] = useState(false);
+  const [consecutiveCount, setConsecutiveCount] = useState(0);
+  const [rateLimitCooldown, setRateLimitCooldown] = useState(0);
+
+  // Rate limiter countdown timer (30s cooldown after 5 consecutive messages)
+  useEffect(() => {
+    if (rateLimitCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setRateLimitCooldown(prev => {
+        if (prev <= 1) {
+          setConsecutiveCount(0);
+          setErrorMsg('');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [rateLimitCooldown]);
+
+  // When bot or admin reply arrives, reset consecutive count
+  useEffect(() => {
+    if (messages.length > 0) {
+      const last = messages[messages.length - 1];
+      if (last.sender === 'admin' || (last.sender === 'bot' && !isTyping)) {
+        setConsecutiveCount(0);
+      }
+    }
+  }, [messages, isTyping]);
+
+  // Helper to format stored inquiry into chat message items
+  const formatInquiryMessages = (inquiry, defaultGreetingName) => {
+    const list = [];
+    const stored = Array.isArray(inquiry?.messages) ? inquiry.messages : [];
+
+    list.push({
+      sender: 'bot',
+      text: `Good day, ${defaultGreetingName}! Here is your support ticket history${inquiry?.ticketNumber ? ` (Ticket ${inquiry.ticketNumber})` : ''}.`,
+      time: inquiry?.createdAt ? new Date(inquiry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+      createdAt: inquiry?.createdAt
+    });
+
+    if (stored.length > 0) {
+      stored.forEach(msg => {
+        list.push({
+          sender: msg.sender === 'admin' ? 'admin' : msg.sender === 'user' ? 'user' : 'bot',
+          supportMessageId: msg._id ? String(msg._id) : null,
+          text: msg.text,
+          time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          createdAt: msg.createdAt
+        });
+      });
+    } else if (inquiry?.question) {
+      list.push({
+        sender: 'user',
+        text: inquiry.question,
+        time: inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+        createdAt: inquiry.createdAt
+      });
+      if (inquiry?.reply) {
+        list.push({
+          sender: 'admin',
+          text: inquiry.reply,
+          time: inquiry.repliedAt ? new Date(inquiry.repliedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+          createdAt: inquiry.repliedAt
+        });
+      }
+    }
+
+    if (inquiry?.reply && !list.some(m => m.sender === 'admin' && m.text === inquiry.reply)) {
+      list.push({
+        sender: 'admin',
+        text: inquiry.reply,
+        time: inquiry.repliedAt ? new Date(inquiry.repliedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+        createdAt: inquiry.repliedAt
+      });
+    }
+
+    return list;
+  };
+
+  // Sync active inquiry id with localStorage when user changes
+  useEffect(() => {
+    if (!ticketStorageKey) {
+      setActiveInquiryId(null);
+      setTicketClosed(false);
+      return;
+    }
+    try {
+      const saved = localStorage.getItem(ticketStorageKey);
+      if (saved) {
+        setActiveInquiryId(saved);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [ticketStorageKey]);
+
+  // Save draft messages when no ticket has been officially created yet
+  useEffect(() => {
+    if (!draftChatKey || activeInquiryId) return;
+    try {
+      if (messages.length > 1) {
+        localStorage.setItem(draftChatKey, JSON.stringify(messages));
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [messages, draftChatKey, activeInquiryId]);
+
+  // Initialize or re-hydrate support ticket conversation
+  useEffect(() => {
+    if (!isCsOpen) return;
+    setErrorMsg('');
+
+    if (!currentUser) {
+      setActiveInquiryId(null);
+      setTicketClosed(false);
+      setMessages([
+        {
+          sender: 'bot',
+          text: 'Welcome to Archon Nell Support Desk! Please sign in to your account to submit questions and chat with our technical support team.',
+          time: 'Just now'
+        }
+      ]);
+      return;
+    }
+
+    const userName = currentUser?.name || currentUser?.full_name || 'Customer';
+    const savedId = ticketStorageKey ? localStorage.getItem(ticketStorageKey) : null;
+
+    const showDefaultGreeting = () => {
+      // Check if draft chat exists
+      if (draftChatKey) {
+        try {
+          const raw = localStorage.getItem(draftChatKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setMessages(parsed);
+              return;
+            }
+          }
+        } catch {}
+      }
+
+      setActiveInquiryId(null);
+      setTicketClosed(false);
+      setMessages([
+        {
+          sender: 'bot',
+          text: `Good day, ${userName}! Choose a prepared topic below for instant details, or type your custom inquiry to reach our engineering team.`,
+          time: 'Just now'
+        }
+      ]);
+    };
+
+    const checkOpenInquiries = () => {
+      api.getSupportInquiries({ status: 'open' })
+        .then(inquiries => {
+          const list = Array.isArray(inquiries) ? inquiries : [];
+          const openTicket = list[0];
+          if (openTicket && (openTicket._id || openTicket.id)) {
+            const ticketId = openTicket._id || openTicket.id;
+            setActiveInquiryId(ticketId);
+            setTicketClosed(false);
+            if (ticketStorageKey) {
+              try {
+                localStorage.setItem(ticketStorageKey, ticketId);
+              } catch {}
+            }
+            if (draftChatKey) {
+              try {
+                localStorage.removeItem(draftChatKey);
+              } catch {}
+            }
+            setMessages(formatInquiryMessages(openTicket, userName));
+          } else {
+            showDefaultGreeting();
+          }
+        })
+        .catch(() => {
+          showDefaultGreeting();
+        });
+    };
+
+    if (savedId) {
+      api.getSupportInquiry(savedId)
+        .then(inquiry => {
+          if (!inquiry || (!inquiry.id && !inquiry._id)) {
+            checkOpenInquiries();
+            return;
+          }
+          const ticketId = inquiry._id || inquiry.id;
+          setActiveInquiryId(ticketId);
+          setTicketClosed(inquiry.status === 'closed');
+          if (draftChatKey) {
+            try {
+              localStorage.removeItem(draftChatKey);
+            } catch {}
+          }
+          setMessages(formatInquiryMessages(inquiry, userName));
+        })
+        .catch(() => {
+          checkOpenInquiries();
+        });
+    } else {
+      checkOpenInquiries();
+    }
+  }, [isCsOpen, userStorageKey, ticketStorageKey, draftChatKey]);
 
   useEffect(() => {
     if (!isCsOpen) return;
     setVouchersLoaded(false);
-    setErrorMsg('');
     api.getVouchers()
       .then(data => { 
         setVouchers(Array.isArray(data) ? data : []); 
@@ -108,10 +321,10 @@ export default function CsModal() {
   }, [messages, isCsOpen, isTyping]);
 
   useEffect(() => {
-    if (!isCsOpen || !activeInquiryId) return undefined;
+    if (!isCsOpen || !activeInquiryId || !currentUser) return undefined;
     const poll = async () => {
       try {
-        const inquiry = await api.getSupportInquiry(activeInquiryId, guestAccessToken);
+        const inquiry = await api.getSupportInquiry(activeInquiryId);
         setTicketClosed(inquiry?.status === 'closed');
         const storedMessages = Array.isArray(inquiry?.messages) ? inquiry.messages : [];
         setMessages(previous => {
@@ -150,7 +363,7 @@ export default function CsModal() {
     const timer = setInterval(poll, 6000);
     poll();
     return () => clearInterval(timer);
-  }, [isCsOpen, activeInquiryId, guestAccessToken]);
+  }, [isCsOpen, activeInquiryId, currentUser]);
 
   if (!isCsOpen) return null;
 
@@ -176,9 +389,6 @@ export default function CsModal() {
       return available.length ? `Current inventory:\n${available.map(product => `• ${product.title || product.name}: ${Number(product.stock ?? product.inventory)} in stock`).join('\n')}` : 'No in-stock products were returned by the current catalog.';
     }
     if (topic.id === 'discount') {
-      if (!vouchersLoaded && vouchers.length === 0) {
-        return 'I could not load the current voucher records. Please check promotions at checkout or contact support.';
-      }
       const active = vouchers.filter(voucher => voucher.isActive !== false && (!voucher.expiresAt || new Date(voucher.expiresAt) > new Date()));
       if (!active.length) return 'No active vouchers are currently listed in the database.';
       return `Active database vouchers:\n${active.map(voucher => {
@@ -212,8 +422,31 @@ export default function CsModal() {
   };
 
   const handleSelectTopic = (topic) => {
+    if (!currentUser) {
+      setErrorMsg('Please sign in to ask questions or request technical support.');
+      setIsCsOpen(false);
+      setIsAuthOpen(true);
+      return;
+    }
     if (isTyping || ticketClosed) return;
-    setErrorMsg('');
+
+    // Rate limiter: maximum 5 consecutive messages
+    if (rateLimitCooldown > 0 || consecutiveCount >= 5) {
+      const wait = rateLimitCooldown > 0 ? rateLimitCooldown : 30;
+      if (rateLimitCooldown <= 0) setRateLimitCooldown(30);
+      setErrorMsg(`Rate limit reached: Maximum 5 consecutive messages allowed. Please wait ${wait}s to prevent message buffer.`);
+      return;
+    }
+
+    const nextCount = consecutiveCount + 1;
+    setConsecutiveCount(nextCount);
+    if (nextCount >= 5) {
+      setRateLimitCooldown(30);
+      setErrorMsg('Rate limit reached: Maximum 5 consecutive messages allowed. Please wait 30s to prevent message buffer.');
+    } else {
+      setErrorMsg('');
+    }
+
     const userMsg = {
       sender: 'user',
       text: topic.prompt,
@@ -223,7 +456,7 @@ export default function CsModal() {
     setMessages(prev => [...prev, userMsg]);
     if (activeInquiryId && !ticketClosed) {
       setIsTyping(true);
-      api.addSupportMessage(activeInquiryId, topic.prompt, guestAccessToken)
+      api.addSupportMessage(activeInquiryId, topic.prompt)
         .then(result => {
           const id = result.message?._id ? String(result.message._id) : null;
           if (id) setMessages(prev => prev.map(message => message.createdAt === userMsg.createdAt ? { ...message, supportMessageId: id } : message));
@@ -247,11 +480,29 @@ export default function CsModal() {
   const handleSend = (e) => {
     e.preventDefault();
     setErrorMsg('');
+
+    if (!currentUser) {
+      setErrorMsg('I could not send your message: You are not authorized to message this inquiry.. Please try again.');
+      setIsCsOpen(false);
+      setIsAuthOpen(true);
+      return;
+    }
+
     if (isTyping || !inputText.trim()) return;
 
-    if (!currentUser?.email && !guestEmail.trim()) {
-      setErrorMsg('Please enter your email address so our support team can reach you with an answer.');
+    // Rate limiter: maximum 5 consecutive messages
+    if (rateLimitCooldown > 0 || consecutiveCount >= 5) {
+      const wait = rateLimitCooldown > 0 ? rateLimitCooldown : 30;
+      if (rateLimitCooldown <= 0) setRateLimitCooldown(30);
+      setErrorMsg(`Rate limit reached: Maximum 5 consecutive messages allowed. Please wait ${wait}s to prevent message buffer.`);
       return;
+    }
+
+    const nextCount = consecutiveCount + 1;
+    setConsecutiveCount(nextCount);
+    if (nextCount >= 5) {
+      setRateLimitCooldown(30);
+      setErrorMsg('Rate limit reached: Maximum 5 consecutive messages allowed. Please wait 30s to prevent message buffer.');
     }
 
     const question = inputText.trim();
@@ -266,7 +517,7 @@ export default function CsModal() {
     setInputText('');
     setIsTyping(true);
     if (activeInquiryId) {
-      api.addSupportMessage(activeInquiryId, question, guestAccessToken)
+      api.addSupportMessage(activeInquiryId, question)
         .then(result => {
           const id = result.message?._id ? String(result.message._id) : null;
           if (id) setMessages(prev => prev.map(message => message.createdAt === userMsg.createdAt ? { ...message, supportMessageId: id } : message));
@@ -283,7 +534,7 @@ export default function CsModal() {
     }));
 
     const resolvedName = currentUser?.name || currentUser?.full_name || 'Customer';
-    const resolvedEmail = currentUser?.email || guestEmail.trim();
+    const resolvedEmail = currentUser?.email;
 
     api.createSupportInquiry({ 
       question, 
@@ -293,9 +544,19 @@ export default function CsModal() {
       messages: conversation 
     })
       .then(inquiry => {
-        setActiveInquiryId(inquiry._id || inquiry.id);
+        const newTicketId = inquiry._id || inquiry.id;
+        setActiveInquiryId(newTicketId);
         setTicketClosed(false);
-        if (inquiry.guestAccessToken) setGuestAccessToken(inquiry.guestAccessToken);
+        if (ticketStorageKey && newTicketId) {
+          try {
+            localStorage.setItem(ticketStorageKey, newTicketId);
+          } catch {}
+        }
+        if (draftChatKey) {
+          try {
+            localStorage.removeItem(draftChatKey);
+          } catch {}
+        }
         if (Array.isArray(inquiry.messages)) {
           setMessages(prev => {
             let transcriptIndex = 0;
@@ -308,7 +569,7 @@ export default function CsModal() {
         }
         setMessages(prev => [...prev, {
           sender: 'bot', 
-          text: `This question needs a support specialist. Your inquiry has been routed to the admin team${inquiry.ticketNumber ? ` (Ticket ${inquiry.ticketNumber})` : ''}. We will display their reply right here in this chat window.`,
+          text: "This question needs a support specialist. Your inquiry has been sent to the admin team. We’ll show their reply here.",
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }]);
       })
@@ -321,11 +582,21 @@ export default function CsModal() {
   };
 
   const startNewSupportTicket = () => {
+    if (ticketStorageKey) {
+      try {
+        localStorage.removeItem(ticketStorageKey);
+      } catch {}
+    }
+    if (draftChatKey) {
+      try {
+        localStorage.removeItem(draftChatKey);
+      } catch {}
+    }
     setActiveInquiryId(null);
-    setGuestAccessToken('');
     setTicketClosed(false);
     setInputText('');
     setErrorMsg('');
+    const userName = currentUser?.name || currentUser?.full_name || 'Customer';
     setMessages([{
       sender: 'bot',
       text: 'Your previous ticket is closed. Type your new question below to create another ticket for admin support.',
@@ -408,7 +679,32 @@ export default function CsModal() {
           <div ref={messagesEndRef} />
         </div>
 
-        {ticketClosed ? (
+        {/* Auth Gate vs Chat Forms */}
+        {!currentUser ? (
+          <div className="p-4 bg-slate-100 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left flex-shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 shrink-0">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-800">Account Sign In Required</h4>
+                <p className="text-[11px] text-slate-500">
+                  Please log in to your account to submit questions and chat with our technical support team.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsCsOpen(false);
+                setIsAuthOpen(true);
+              }}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 shrink-0"
+            >
+              Sign In to Continue
+            </button>
+          </div>
+        ) : ticketClosed ? (
           <div className="flex flex-col items-center gap-2 border-t border-slate-200 bg-slate-100 p-4 text-center">
             <span className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[10px] font-bold uppercase text-slate-600">Ticket closed</span>
             <p className="text-[11px] text-slate-600">This conversation is closed. Start a new ticket if you need more assistance.</p>
@@ -433,8 +729,8 @@ export default function CsModal() {
                       key={topic.id}
                       type="button"
                       onClick={() => handleSelectTopic(topic)}
-                      disabled={isTyping}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-blue-50 hover:border-blue-400 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 hover:text-blue-700 text-left transition-all shadow-xs active:scale-95"
+                      disabled={isTyping || rateLimitCooldown > 0}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-blue-50 hover:border-blue-400 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 hover:text-blue-700 text-left transition-all shadow-xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Icon className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                       <span className="truncate">{topic.label}</span>
@@ -444,8 +740,19 @@ export default function CsModal() {
               </div>
             </div>
 
+            {/* Rate Limit Active Warning Alert */}
+            {rateLimitCooldown > 0 && (
+              <div className="px-3 py-2 bg-amber-50 border-t border-amber-200 text-amber-800 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                  <span>Rate limit active: Maximum 5 consecutive messages reached. Please wait <strong>{rateLimitCooldown}s</strong> to avoid message buffer.</span>
+                </div>
+                <span className="font-mono font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md text-[11px]">{rateLimitCooldown}s</span>
+              </div>
+            )}
+
             {/* Error Message Alert */}
-            {errorMsg && (
+            {errorMsg && rateLimitCooldown <= 0 && (
               <div className="px-3 py-2 bg-rose-50 border-t border-rose-200 text-rose-700 text-xs flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{errorMsg}</span>
@@ -453,41 +760,26 @@ export default function CsModal() {
             )}
 
             {/* Message Input Form */}
-            <form onSubmit={handleSend} className="p-3 bg-white border-t border-slate-200 flex flex-col gap-2 flex-shrink-0">
-              {!currentUser?.email && (
-                <input 
-                  type="email" 
-                  required 
-                  value={guestEmail} 
-                  onChange={event => {
-                    setGuestEmail(event.target.value);
-                    if (errorMsg) setErrorMsg('');
-                  }} 
-                  placeholder="Enter your email address so our team can reply..." 
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800" 
-                />
-              )}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={inputText}
-                  disabled={isTyping}
-                  onChange={(e) => {
-                    setInputText(e.target.value);
-                    if (errorMsg) setErrorMsg('');
-                  }}
-                  placeholder={activeInquiryId ? 'Send a follow-up in this open ticket…' : 'Type a question to create an admin support ticket…'}
-                  className="flex-1 px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800"
-                />
-                <button
-                  type="submit"
-                  disabled={isTyping}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm transition-all active:scale-95"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{activeInquiryId ? 'Send' : 'Create ticket'}</span>
-                </button>
-              </div>
+            <form onSubmit={handleSend} className="p-3 bg-white border-t border-slate-200 flex gap-2 flex-shrink-0">
+              <input
+                type="text"
+                value={inputText}
+                disabled={isTyping || rateLimitCooldown > 0}
+                onChange={(e) => {
+                  setInputText(e.target.value);
+                  if (errorMsg) setErrorMsg('');
+                }}
+                placeholder={rateLimitCooldown > 0 ? `Rate limit active: Please wait ${rateLimitCooldown}s...` : activeInquiryId ? 'Send a follow-up in this open ticket…' : 'Type a question to create an admin support ticket…'}
+                className="flex-1 px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800 disabled:opacity-50 disabled:bg-slate-100"
+              />
+              <button
+                type="submit"
+                disabled={isTyping || rateLimitCooldown > 0}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm transition-all active:scale-95"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{activeInquiryId ? 'Send' : 'Create ticket'}</span>
+              </button>
             </form>
           </>
         )}
