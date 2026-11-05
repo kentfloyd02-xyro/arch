@@ -282,16 +282,25 @@ export default function CheckoutModal() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Contact Phone Number *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Contact Phone Number *
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {customerPhone.replace(/\D/g, '').length}/11
+                  </span>
+                </div>
                 <input
-                  type="text"
+                  type="tel"
                   required
+                  maxLength={11}
                   value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="+63 917 123 4567"
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
+                    setCustomerPhone(clean);
+                  }}
+                  placeholder="09171234567"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 font-mono tracking-wider"
                 />
               </div>
             </div>

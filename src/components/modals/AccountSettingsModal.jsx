@@ -159,15 +159,25 @@ export default function AccountSettingsModal() {
 
           {/* Phone */}
           <div className="space-y-1">
-            <label className="font-bold text-slate-700 flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5 text-slate-400" />
-              <span>Contact Mobile Phone</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-slate-700 flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-slate-400" />
+                <span>Contact Mobile Phone</span>
+              </label>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {formData.phone.replace(/\D/g, '').length}/11
+              </span>
+            </div>
             <input
-              type="text"
+              type="tel"
+              maxLength={11}
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-900"
+              onChange={(e) => {
+                const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
+                setFormData({ ...formData, phone: clean });
+              }}
+              placeholder="09171234567"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-900 font-mono tracking-wider"
             />
           </div>
 

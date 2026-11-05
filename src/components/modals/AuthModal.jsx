@@ -11,13 +11,15 @@ import {
   KeyRound, 
   RefreshCw, 
   Eye, 
-  EyeOff,
-  User,
-  ArrowLeft,
-  ShieldCheck,
-  ShieldAlert,
-  Info,
-  Clock
+  EyeOff, 
+  User, 
+  ArrowLeft, 
+  ShieldCheck, 
+  ShieldAlert, 
+  Info, 
+  Clock,
+  Headphones,
+  ExternalLink
 } from 'lucide-react';
 
 function maskEmail(email) {
@@ -89,7 +91,8 @@ export default function AuthModal() {
     loginWithAuth,
     setCurrentUser, 
     setCurrentView, 
-    showToast 
+    showToast,
+    setIsCsOpen
   } = useApp();
 
   // Modes: 'LOGIN' | 'LOGIN_OTP' | 'FORGOT_EMAIL' | 'FORGOT_OTP' | 'REGISTER'
@@ -428,521 +431,568 @@ export default function AuthModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-        
-        {/* Header with Navy Branding */}
-        <div className="p-5 sm:p-6 bg-[#0b1b3d] text-white flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-600 rounded-xl text-white">
-              {mode === 'LOGIN_OTP' || mode === 'FORGOT_OTP' ? (
-                <KeyRound className="w-5 h-5" />
-              ) : (
-                <Lock className="w-5 h-5" />
-              )}
-            </div>
-            <div>
-              <h3 className="text-sm sm:text-base font-extrabold text-white">
-                {mode === 'LOGIN' && 'Sign In to Archon Nell'}
-                {mode === 'LOGIN_OTP' && 'Two-Factor Authentication'}
-                {mode === 'FORGOT_EMAIL' && 'Reset Your Password'}
-                {mode === 'FORGOT_OTP' && 'Verify & Set New Password'}
-                {mode === 'REGISTER' && 'Create Contractor Account'}
-              </h3>
-              <p className="text-[11px] text-slate-300">
-                {mode === 'LOGIN' && 'Secure access with 2FA OTP & Password Policy'}
-                {mode === 'LOGIN_OTP' && 'Enter the 6-digit code sent to your email'}
-                {mode === 'FORGOT_EMAIL' && 'We will send a reset code via Brevo email'}
-                {mode === 'FORGOT_OTP' && 'Adhere to password policy to protect your account'}
-                {mode === 'REGISTER' && 'Register for procurement and bulk contractor orders'}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsAuthOpen(false)}
-            className="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#FBF9F5] flex flex-col justify-between p-4 sm:p-6 md:p-8 animate-in fade-in duration-200">
+      
+      {/* Top Application Bar matching screenshot */}
+      <div className="w-full max-w-6xl mx-auto flex items-center justify-between pb-4 sm:pb-6">
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-900 font-bold">
+          <span>Archon Nell Incorporated</span>
+          <span className="text-slate-300 font-normal">•</span>
+          <span className="text-slate-500 font-normal text-xs">Hardware Online</span>
+          <span className="text-slate-300 font-normal">•</span>
+          <span className="text-slate-400 font-mono text-[11px] font-normal">Project v1</span>
         </div>
 
-        {/* Error Alert Box */}
-        {errorMsg && (
-          <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-            <span>{errorMsg}</span>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-[#FAF3EC] border border-[#F3E5D8] text-[11px] text-[#8C4F27] font-medium shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-[#B45309]" />
+            <span>Archon Secure Gateway</span>
+            <span className="text-amber-300">•</span>
+            <span className="text-amber-900/70">Hardware Online</span>
           </div>
-        )}
 
-        {/* ======================================================== */}
-        {/* 1. LOGIN FORM                                            */}
-        {/* ======================================================== */}
-        {mode === 'LOGIN' && (
-          <form onSubmit={handleLoginSubmit} className="p-6 space-y-4">
-            
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Email Address</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@archonnell.com"
-                  className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-900"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between items-center">
-                <label className="block text-xs font-bold text-slate-700">Password</label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setErrorMsg('');
-                    setMode('FORGOT_EMAIL');
-                  }}
-                  className="text-[11px] font-bold text-blue-600 hover:text-blue-700"
-                >
-                  Forgot Password?
-                </button>
-              </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full pl-9 pr-10 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-900"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-          
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2 active:scale-98"
-            >
-              {loading ? (
-                <span>Validating & Dispatching OTP...</span>
-              ) : (
-                <>
-                  <span>Sign In & Verify</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-
-            {/* Switch to Register */}
-            <div className="pt-3 border-t border-slate-100 text-center">
-              <p className="text-xs text-slate-500">
-                Don't have an account yet?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setErrorMsg('');
-                    setMode('REGISTER');
-                  }}
-                  className="font-bold text-blue-600 hover:text-blue-700 ml-1"
-                >
-                  Register here
-                </button>
-              </p>
-            </div>
-
-          </form>
-        )}
-
-        {/* ======================================================== */}
-        {/* 2. LOGIN OTP VERIFICATION (2FA RBAC)                     */}
-        {/* ======================================================== */}
-        {mode === 'LOGIN_OTP' && (
-          <form onSubmit={handleLoginOtpVerify} className="p-6 space-y-4 text-center">
-            
-            <div className="space-y-1.5">
-              <p className="text-xs text-slate-600">
-                We sent a 6-digit security code via Brevo to:
-              </p>
-              <div className="inline-block bg-slate-100 text-slate-800 font-mono text-xs px-3 py-1 rounded-full font-bold">
-                {maskEmail(email)}
-              </div>
-            </div>
-
-            {/* 6-Digit OTP Box (Disabled if code aborted) */}
-            <div>
-              <input
-                type="text"
-                autoFocus
-                disabled={isOtpAborted}
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="••••••"
-                className={`w-full text-center text-3xl tracking-[0.5em] font-mono font-black py-3 border-2 rounded-2xl focus:outline-none transition-all ${
-                  isOtpAborted 
-                    ? 'bg-rose-50 border-rose-300 text-rose-400 cursor-not-allowed' 
-                    : 'bg-slate-50 border-blue-200 focus:border-blue-600 text-slate-900'
-                }`}
-              />
-            </div>
-
-            {/* Timer & Attempt Warning */}
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>Code expires in:</span>
-              <span className={`font-mono font-bold ${timeLeft < 60 ? 'text-rose-500 animate-pulse' : 'text-slate-800'}`}>
-                {formattedTime}
-              </span>
-            </div>
-
-            {/* Trust this device for 5 days toggle on OTP screen */}
-            <div 
-              onClick={() => setTrustDevice(!trustDevice)}
-              className="flex items-center justify-between p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer shadow-sm text-left my-2"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  trustDevice ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'
-                }`}>
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-xs font-bold text-slate-900 block truncate">Trust this device for 5 days.</span>
-                  <span className="text-[10px] text-slate-500 block truncate">Skips OTP verification on this browser for 5 days</span>
-                </div>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={trustDevice}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-                  trustDevice ? 'bg-[#5850ec]' : 'bg-slate-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform ${
-                    trustDevice ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || otpCode.length !== 6 || isOtpAborted}
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-98"
-            >
-              {loading ? (
-                <span>Verifying credentials & role...</span>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Verify OTP & Launch Dashboard</span>
-                </>
-              )}
-            </button>
-
-            {/* Action Bar with 1-Minute Cooldown Timer on Resend */}
-            <div className="pt-2 flex items-center justify-between text-xs border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setMode('LOGIN')}
-                className="text-slate-500 hover:text-slate-700 flex items-center gap-1 font-semibold"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Login</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={loading || resendCooldown > 0}
-                onClick={() => handleResendOtp('Login 2FA Verification')}
-                className="text-blue-600 hover:text-blue-700 disabled:text-slate-400 disabled:cursor-not-allowed font-bold flex items-center gap-1.5 transition-all"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span>{resendCooldown > 0 ? `Resend Code (${resendCooldown}s)` : 'Resend Code'}</span>
-              </button>
-            </div>
-
-          </form>
-        )}
-
-        {/* ======================================================== */}
-        {/* 3. FORGOT PASSWORD - EMAIL INPUT                         */}
-        {/* ======================================================== */}
-        {mode === 'FORGOT_EMAIL' && (
-          <form onSubmit={handleForgotEmailSubmit} className="p-6 space-y-4">
-            
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Enter your registered account email. An OTP code will be sent to verify your identity before creating a new password.
-            </p>
-
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Registered Email</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@archonnell.com"
-                  className="w-full pl-9 pr-3.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-900"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-4 active:scale-98"
-            >
-              {loading ? (
-                <span>Dispatching Code...</span>
-              ) : (
-                <>
-                  <span>Send Reset OTP Code</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-
-            <div className="pt-2 text-center">
-              <button
-                type="button"
-                onClick={() => setMode('LOGIN')}
-                className="text-xs text-slate-500 hover:text-slate-700 font-semibold inline-flex items-center gap-1"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Cancel & Return to Login</span>
-              </button>
-            </div>
-
-          </form>
-        )}
-
-        {/* ======================================================== */}
-        {/* 4. FORGOT PASSWORD - OTP & NEW PASSWORD (POLICY CHECK)   */}
-        {/* ======================================================== */}
-        {mode === 'FORGOT_OTP' && (
-          <form onSubmit={handleForgotOtpVerify} className="p-6 space-y-3.5">
-            
-            <div className="space-y-1 text-center">
-              <p className="text-xs text-slate-600">Enter code sent to:</p>
-              <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
-                {maskEmail(email)}
-              </span>
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-700">6-Digit Verification Code</label>
-              <input
-                type="text"
-                autoFocus
-                disabled={isOtpAborted}
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="••••••"
-                className={`w-full text-center text-2xl tracking-[0.4em] font-mono font-bold py-2 border rounded-xl focus:outline-none ${
-                  isOtpAborted ? 'bg-rose-50 border-rose-300 text-rose-400 cursor-not-allowed' : 'bg-slate-50 border-blue-300 focus:border-blue-600'
-                }`}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-700">New Password</label>
-              <input
-                type="password"
-                required
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Must adhere to password policy"
-                className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-900"
-              />
-            </div>
-
-            {/* Interactive Password Policy Checklist */}
-            <PasswordChecklist password={newPassword} />
-
-            <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Confirm New Password</label>
-              <input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-type new password"
-                className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-900"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !validatePasswordRules(newPassword) || newPassword !== confirmPassword || isOtpAborted}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-4 active:scale-98"
-            >
-              {loading ? (
-                <span>Updating Password...</span>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Update Password & Unlock Account</span>
-                </>
-              )}
-            </button>
-
-            <div className="pt-2 flex items-center justify-between text-xs border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setMode('LOGIN')}
-                className="text-slate-500 hover:text-slate-700 flex items-center gap-1 font-semibold"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={loading || resendCooldown > 0}
-                onClick={() => handleResendOtp('Password Reset')}
-                className="text-blue-600 hover:text-blue-700 disabled:text-slate-400 disabled:cursor-not-allowed font-bold flex items-center gap-1.5"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span>{resendCooldown > 0 ? `Resend Code (${resendCooldown}s)` : 'Resend Code'}</span>
-              </button>
-            </div>
-
-          </form>
-        )}
-
-        {/* ======================================================== */}
-        {/* 5. REGISTER NEW CONTRACTOR ACCOUNT (POLICY CHECK)        */}
-        {/* ======================================================== */}
-        {mode === 'REGISTER' && (
-          <form onSubmit={handleRegisterSubmit} className="p-6 space-y-3">
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-700">Full Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
-                  placeholder="e.g. Engr. Juan Dela Cruz"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-700">Email Address *</label>
-                <input
-                  type="email"
-                  required
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="contractor@company.com"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-700">Password *</label>
-                <input
-                  type="password"
-                  required
-                  value={regPassword}
-                  onChange={(e) => setRegPassword(e.target.value)}
-                  placeholder="Create secure password"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-700">Mobile Phone</label>
-                  <span className="text-[10px] text-slate-400 font-mono">{regPhone.length}/11</span>
-                </div>
-                <input
-                  type="tel"
-                  maxLength={11}
-                  value={regPhone}
-                  onChange={(e) => {
-                    const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
-                    setRegPhone(clean);
-                  }}
-                  placeholder="09171234567"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 font-mono tracking-wider"
-                />
-              </div>
-            </div>
-
-            {/* Interactive Password Policy Checklist */}
-            <PasswordChecklist password={regPassword} />
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-700">Primary Delivery Address / Depot</label>
-                <span className="text-[10px] text-slate-400 font-semibold">(Optional)</span>
-              </div>
-              <input
-                type="text"
-                value={regAddress}
-                onChange={(e) => setRegAddress(e.target.value)}
-                placeholder="Depot address or project location (optional)"
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !validatePasswordRules(regPassword)}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-3 active:scale-98"
-            >
-              {loading ? (
-                <span>Creating Account...</span>
-              ) : (
-                <>
-                  <User className="w-4 h-4" />
-                  <span>Create Account & Log In</span>
-                </>
-              )}
-            </button>
-
-            <div className="pt-2 text-center border-t border-slate-100">
-              <p className="text-xs text-slate-500">
-                Already registered?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setErrorMsg('');
-                    setMode('LOGIN');
-                  }}
-                  className="font-bold text-blue-600 hover:text-blue-700 ml-1"
-                >
-                  Sign in here
-                </button>
-              </p>
-            </div>
-
-          </form>
-        )}
-
+          <button
+            onClick={() => setIsAuthOpen(false)}
+            aria-label="Close"
+            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors shadow-sm"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
+
+      {/* Centered Main Card matching screenshot */}
+      <div className="w-full flex items-center justify-center my-auto py-2">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xl shadow-slate-300/40 max-w-[460px] w-full overflow-hidden flex flex-col relative transition-all">
+          
+          {/* Top Dark Navy Accent Strip */}
+          <div className="h-1 bg-[#0B1B3D] w-full" />
+
+          <div className="p-7 sm:p-9">
+            
+            {/* Archon Nell Logo */}
+            <div className="flex justify-center mb-1">
+              <img 
+                src="/assets/images/archon_nell_logo.png" 
+                alt="Archon Nell Incorporated" 
+                className="h-10 sm:h-11 w-auto object-contain" 
+              />
+            </div>
+
+            {/* Tagline */}
+            <div className="text-[10px] sm:text-[11px] font-bold tracking-[0.2em] text-[#C25E38] text-center uppercase mb-5 font-mono">
+              PARTNER • INNOVATOR • SOLUTIONS PROVIDER
+            </div>
+
+            {/* Section Headings based on mode */}
+            <div className="text-center mb-6">
+              <h2 className="text-xl sm:text-[22px] font-extrabold text-slate-900 tracking-tight leading-snug">
+                {mode === 'LOGIN' && 'Hardware Gateway & Control Access'}
+                {mode === 'LOGIN_OTP' && 'Two-Factor OTP Verification'}
+                {mode === 'FORGOT_EMAIL' && 'Reset Terminal Credentials'}
+                {mode === 'FORGOT_OTP' && 'Verify & Update Credentials'}
+                {mode === 'REGISTER' && 'Provision New Client Account'}
+              </h2>
+              <p className="text-xs text-slate-500 mt-1.5 max-w-xs mx-auto leading-relaxed">
+                {mode === 'LOGIN' && 'Enter hardware operator or engineer credentials to access node controller & telemetry dashboard'}
+                {mode === 'LOGIN_OTP' && `Enter the 6-digit authentication token dispatched to ${maskEmail(email)}`}
+                {mode === 'FORGOT_EMAIL' && 'Enter your verified account email to initiate security credential recovery'}
+                {mode === 'FORGOT_OTP' && 'Enter the 6-digit recovery code and configure your compliant security password'}
+                {mode === 'REGISTER' && 'Enter your corporate and operator details to provision client portal access'}
+              </p>
+            </div>
+
+            {/* Error Alert Box */}
+            {errorMsg && (
+              <div className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* ======================================================== */}
+            {/* 1. LOGIN FORM                                            */}
+            {/* ======================================================== */}
+            {mode === 'LOGIN' && (
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
+                
+                <div>
+                  <label className="block text-[12px] font-semibold text-slate-700 mb-1.5">Email</label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="eng.id@archonnell.com / HW-NODE-04"
+                      className="w-full pl-9 pr-3.5 py-2.5 text-xs sm:text-[13px] bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900 placeholder:text-slate-400 transition-colors shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[12px] font-semibold text-slate-700">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorMsg('');
+                        setMode('FORGOT_EMAIL');
+                      }}
+                      className="text-[11px] font-medium text-slate-500 hover:text-slate-900 transition-colors"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full pl-9 pr-10 py-2.5 text-xs sm:text-[13px] bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900 placeholder:text-slate-400 transition-colors shadow-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 px-4 bg-[#0B1B3D] hover:bg-[#142958] disabled:opacity-50 text-white text-xs sm:text-[13px] font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.99]"
+                >
+                  {loading ? (
+                    <span>Authorizing Session...</span>
+                  ) : (
+                    <>
+                      <span>Authorize Terminal Session</span>
+                      <ExternalLink className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                {/* Security Footnote */}
+                <div className="pt-3 text-center">
+                  <div className="text-[11px] text-slate-500 flex items-center justify-center gap-1.5 font-medium">
+                    <ShieldCheck className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Hardware TPM 2.0 & Physical Key Authentication</span>
+                  </div>
+
+                  <p className="text-xs text-slate-500 mt-2.5">
+                    Unprovisioned hardware controller?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorMsg('');
+                        setMode('REGISTER');
+                      }}
+                      className="font-bold text-[#C25E38] hover:text-[#9A4323] transition-colors"
+                    >
+                      Contact Hardware Lead / Register
+                    </button>
+                  </p>
+                </div>
+
+              </form>
+            )}
+
+            {/* ======================================================== */}
+            {/* 2. LOGIN OTP VERIFICATION                                */}
+            {/* ======================================================== */}
+            {mode === 'LOGIN_OTP' && (
+              <form onSubmit={handleLoginOtpVerify} className="space-y-4">
+                
+                <div className="space-y-1.5 text-center">
+                  <p className="text-xs text-slate-500">Authentication token dispatched to:</p>
+                  <div className="inline-block bg-slate-100 text-slate-800 font-mono text-xs px-3 py-1 rounded-full font-bold">
+                    {maskEmail(email)}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-semibold text-slate-700 text-center mb-1.5">
+                    6-Digit OTP Token
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    disabled={isOtpAborted}
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••••"
+                    className={`w-full text-center text-2xl tracking-[0.45em] font-mono font-bold py-3 bg-white border rounded-lg focus:outline-none transition-all shadow-sm ${
+                      isOtpAborted 
+                        ? 'bg-rose-50 border-rose-300 text-rose-500 cursor-not-allowed' 
+                        : 'border-slate-300 focus:border-slate-800 text-slate-900'
+                    }`}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                  <span>Token validity:</span>
+                  <span className={`font-mono font-bold ${timeLeft < 60 ? 'text-rose-500 animate-pulse' : 'text-slate-800'}`}>
+                    {formattedTime}
+                  </span>
+                </div>
+
+                {/* Trust this device for 5 days toggle on OTP screen */}
+                <div 
+                  onClick={() => setTrustDevice(!trustDevice)}
+                  className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100/70 transition-all cursor-pointer text-left shadow-sm"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      trustDevice ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500'
+                    }`}>
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[12px] font-bold text-slate-900 block truncate">Trust this device for 5 days.</span>
+                      <span className="text-[10px] text-slate-500 block truncate">Skips OTP verification on this browser for 5 days</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={trustDevice}
+                    className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors flex-shrink-0 ${
+                      trustDevice ? 'bg-[#0B1B3D]' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md transition-transform ${
+                        trustDevice ? 'translate-x-5' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || otpCode.length !== 6 || isOtpAborted}
+                  className="w-full py-3 px-4 bg-[#0B1B3D] hover:bg-[#142958] disabled:opacity-50 text-white text-xs sm:text-[13px] font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
+                >
+                  {loading ? (
+                    <span>Verifying Token...</span>
+                  ) : (
+                    <>
+                      <span>Verify Token & Authorize Session</span>
+                      <ExternalLink className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-2 flex items-center justify-between text-xs border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setMode('LOGIN')}
+                    className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-semibold"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Login</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={loading || resendCooldown > 0}
+                    onClick={() => handleResendOtp('Login 2FA Verification')}
+                    className="text-[#C25E38] hover:text-[#9A4323] disabled:text-slate-400 disabled:cursor-not-allowed font-bold flex items-center gap-1.5 transition-all"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    <span>{resendCooldown > 0 ? `Resend Token (${resendCooldown}s)` : 'Resend Token'}</span>
+                  </button>
+                </div>
+
+              </form>
+            )}
+
+            {/* ======================================================== */}
+            {/* 3. FORGOT PASSWORD - EMAIL INPUT                         */}
+            {/* ======================================================== */}
+            {mode === 'FORGOT_EMAIL' && (
+              <form onSubmit={handleForgotEmailSubmit} className="space-y-4">
+                
+                <div>
+                  <label className="block text-[12px] font-semibold text-slate-700 mb-1.5">Registered Email</label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="eng.id@archonnell.com"
+                      className="w-full pl-9 pr-3.5 py-2.5 text-xs sm:text-[13px] bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900 placeholder:text-slate-400 transition-colors shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 px-4 bg-[#0B1B3D] hover:bg-[#142958] disabled:opacity-50 text-white text-xs sm:text-[13px] font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
+                >
+                  {loading ? (
+                    <span>Dispatching Recovery Key...</span>
+                  ) : (
+                    <>
+                      <span>Dispatch Security Recovery Code</span>
+                      <ExternalLink className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setMode('LOGIN')}
+                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold inline-flex items-center gap-1"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Return to Terminal Login</span>
+                  </button>
+                </div>
+
+              </form>
+            )}
+
+            {/* ======================================================== */}
+            {/* 4. FORGOT PASSWORD - OTP & NEW PASSWORD                  */}
+            {/* ======================================================== */}
+            {mode === 'FORGOT_OTP' && (
+              <form onSubmit={handleForgotOtpVerify} className="space-y-3.5">
+                
+                <div className="space-y-1 text-center">
+                  <p className="text-xs text-slate-500">Recovery token sent to:</p>
+                  <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                    {maskEmail(email)}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-semibold text-slate-700 text-center mb-1">
+                    6-Digit Recovery Token
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    disabled={isOtpAborted}
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••••"
+                    className="w-full text-center text-2xl tracking-[0.45em] font-mono font-bold py-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-semibold text-slate-700 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Must comply with security policy"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-[13px] bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900"
+                  />
+                </div>
+
+                <PasswordChecklist password={newPassword} />
+
+                <div>
+                  <label className="block text-[12px] font-semibold text-slate-700 mb-1">Confirm New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter compliant password"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-[13px] bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !validatePasswordRules(newPassword) || newPassword !== confirmPassword || isOtpAborted}
+                  className="w-full py-3 px-4 bg-[#0B1B3D] hover:bg-[#142958] disabled:opacity-40 text-white text-xs sm:text-[13px] font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.99]"
+                >
+                  {loading ? (
+                    <span>Updating Credentials...</span>
+                  ) : (
+                    <>
+                      <span>Confirm & Update Credentials</span>
+                      <ExternalLink className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-2 flex items-center justify-between text-xs border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setMode('LOGIN')}
+                    className="text-slate-500 hover:text-slate-800 flex items-center gap-1 font-semibold"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Cancel</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={loading || resendCooldown > 0}
+                    onClick={() => handleResendOtp('Password Reset')}
+                    className="text-[#C25E38] hover:text-[#9A4323] disabled:text-slate-400 disabled:cursor-not-allowed font-bold flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    <span>{resendCooldown > 0 ? `Resend Code (${resendCooldown}s)` : 'Resend Code'}</span>
+                  </button>
+                </div>
+
+              </form>
+            )}
+
+            {/* ======================================================== */}
+            {/* 5. REGISTER NEW ACCOUNT                                  */}
+            {/* ======================================================== */}
+            {mode === 'REGISTER' && (
+              <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[12px] font-semibold text-slate-700 mb-1">Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      placeholder="e.g. Roland Martinez"
+                      className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] font-semibold text-slate-700 mb-1">Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      placeholder="operator@company.com"
+                      className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[12px] font-semibold text-slate-700 mb-1">Password *</label>
+                    <input
+                      type="password"
+                      required
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      placeholder="Create secure password"
+                      className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[12px] font-semibold text-slate-700">Mobile Phone</label>
+                      <span className="text-[10px] text-slate-400 font-mono">{regPhone.length}/11</span>
+                    </div>
+                    <input
+                      type="tel"
+                      maxLength={11}
+                      value={regPhone}
+                      onChange={(e) => {
+                        const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
+                        setRegPhone(clean);
+                      }}
+                      placeholder="09171234567"
+                      className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900 font-mono tracking-wider"
+                    />
+                  </div>
+                </div>
+
+                <PasswordChecklist password={regPassword} />
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[12px] font-semibold text-slate-700">Primary Delivery Address / Depot</label>
+                    <span className="text-[10px] text-slate-400 font-semibold">(Optional)</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={regAddress}
+                    onChange={(e) => setRegAddress(e.target.value)}
+                    placeholder="Depot address or project location (optional)"
+                    className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !validatePasswordRules(regPassword)}
+                  className="w-full py-3 px-4 bg-[#0B1B3D] hover:bg-[#142958] disabled:opacity-40 text-white text-xs sm:text-[13px] font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.99]"
+                >
+                  {loading ? (
+                    <span>Provisioning Account...</span>
+                  ) : (
+                    <>
+                      <span>Provision Client Account</span>
+                      <ExternalLink className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-2 text-center border-t border-slate-100">
+                  <p className="text-xs text-slate-500">
+                    Already provisioned with credentials?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorMsg('');
+                        setMode('LOGIN');
+                      }}
+                      className="font-bold text-[#C25E38] hover:text-[#9A4323] ml-1"
+                    >
+                      Sign in here
+                    </button>
+                  </p>
+                </div>
+
+              </form>
+            )}
+
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Footer matching screenshot with Help Desk link */}
+      <div className="w-full max-w-6xl mx-auto flex items-center justify-center pt-4 sm:pt-6">
+        <button
+          type="button"
+          onClick={() => {
+            setIsAuthOpen(false);
+            if (setIsCsOpen) setIsCsOpen(true);
+          }}
+          className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-slate-800 transition-colors py-1.5 px-3 rounded-lg hover:bg-white/80"
+        >
+          <Headphones className="w-3.5 h-3.5" />
+          <span>Help Desk</span>
+        </button>
+      </div>
+
     </div>
   );
 }
