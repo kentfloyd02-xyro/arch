@@ -5,7 +5,37 @@ const AppContext = createContext();
 
 export function AppProvider({ children }) {
 
-  const [currentView, setCurrentView] = useState('store');
+  const [currentView, setCurrentView] = useState(() => {
+    try {
+      const savedUserRaw = localStorage.getItem('archon_user');
+      const savedUser = savedUserRaw ? JSON.parse(savedUserRaw) : null;
+      const savedView = localStorage.getItem('archon_current_view');
+
+      if (savedView === 'admin-dashboard') {
+        if (savedUser && (savedUser.role === 'admin' || savedUser.global_role === 'admin' || savedUser.global_role === 'superadmin')) {
+          return 'admin-dashboard';
+        }
+        return 'store';
+      }
+
+      if (savedView === 'customer-dashboard') {
+        if (savedUser) {
+          return 'customer-dashboard';
+        }
+        return 'store';
+      }
+
+      return savedView || 'store';
+    } catch (e) {
+      return 'store';
+    }
+  });
+
+  useEffect(() => {
+    if (currentView) {
+      localStorage.setItem('archon_current_view', currentView);
+    }
+  }, [currentView]);
 
   const [products, setProducts] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -189,7 +219,9 @@ export function AppProvider({ children }) {
         console.warn('Session expired or invalid:', err.message);
         localStorage.removeItem('archon_token');
         localStorage.removeItem('archon_user');
+        localStorage.setItem('archon_current_view', 'store');
         setCurrentUser(null);
+        setCurrentView('store');
       });
     }
   }, []);
@@ -235,6 +267,7 @@ export function AppProvider({ children }) {
   const logoutUser = () => {
     localStorage.removeItem('archon_token');
     localStorage.removeItem('archon_user');
+    localStorage.setItem('archon_current_view', 'store');
     setCurrentUser(null);
     setOrders([]);
     setCurrentView('store');

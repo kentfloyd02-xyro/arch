@@ -1,5 +1,5 @@
 export { API_BASE, BASE_URL, request, checkApiHealth } from './client';
-export { authService } from './authService';
+export { authService, isDeviceTrusted, saveDeviceTrust, clearDeviceTrust } from './authService';
 export { productService } from './productService';
 export { orderService } from './orderService';
 export { reviewService } from './reviewService';

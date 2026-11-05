@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { api } from '../../services/api';
+import { api, isDeviceTrusted, saveDeviceTrust, clearDeviceTrust } from '../../services/api';
 import { 
   X, 
   Lock, 
@@ -256,6 +256,12 @@ export default function AuthModal() {
       setLoading(false);
 
       if (res.token && res.user) {
+        if (trustDevice) {
+          saveDeviceTrust(email.trim().toLowerCase());
+        } else {
+          clearDeviceTrust(email.trim().toLowerCase());
+        }
+
         if (loginWithAuth) {
           loginWithAuth(res.user, res.token);
         } else {
@@ -524,17 +530,61 @@ export default function AuthModal() {
             </div>
 
           
+            {/* Trust this device for 5 days toggle on Login screen */}
+            <div 
+              onClick={() => setTrustDevice(!trustDevice)}
+              className="flex items-center justify-between p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer shadow-sm text-left my-2"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  trustDevice ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'
+                }`}>
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-slate-900 block truncate">Trust this device for 5 days.</span>
+                  <span className="text-[10px] text-slate-500 block truncate">
+                    {email && isDeviceTrusted(email.trim().toLowerCase()) 
+                      ? 'Trusted device active • Skips OTP verification' 
+                      : 'Skips OTP verification on this browser for 5 days'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={trustDevice}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                  trustDevice ? 'bg-[#5850ec]' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform ${
+                    trustDevice ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2 active:scale-98"
             >
               {loading ? (
-                <span>Validating & Dispatching OTP...</span>
+                <span>{email && isDeviceTrusted(email.trim().toLowerCase()) && trustDevice ? 'Signing in...' : 'Validating & Dispatching OTP...'}</span>
               ) : (
                 <>
-                  <span>Sign In & Verify</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>
+                    {email && isDeviceTrusted(email.trim().toLowerCase()) && trustDevice
+                      ? 'Sign In (OTP Skipped)' 
+                      : 'Sign In & Verify'}
+                  </span>
+                  {email && isDeviceTrusted(email.trim().toLowerCase()) && trustDevice ? (
+                    <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4" />
+                  )}
                 </>
               )}
             </button>

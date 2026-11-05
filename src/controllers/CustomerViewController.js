@@ -11,7 +11,23 @@ import {
 export function useCustomerViewController() {
   const { currentUser, setCurrentView, logoutUser, orders } = useApp();
 
-  const [activeSection, setActiveSection] = useState('overview');
+  const [activeSection, setActiveSectionState] = useState(() => {
+    try {
+      const savedSection = localStorage.getItem('archon_customer_active_section');
+      const validSections = ['overview', 'orders', 'profile', 'rewards', 'support'];
+      if (savedSection && validSections.includes(savedSection)) {
+        return savedSection;
+      }
+    } catch (e) {}
+    return 'overview';
+  });
+
+  const setActiveSection = (section) => {
+    setActiveSectionState(section);
+    try {
+      localStorage.setItem('archon_customer_active_section', section);
+    } catch (e) {}
+  };
 
   const knownEmails = [currentUser?.email, ...(currentUser?.previousEmails || [])]
     .filter(Boolean)

@@ -14,7 +14,23 @@ import {
 export function useAdminViewController() {
   const { setCurrentView, logoutUser, products, orders } = useApp();
 
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTabState] = useState(() => {
+    try {
+      const savedTab = localStorage.getItem('archon_admin_active_tab');
+      const validTabs = ['dashboard', 'inventory', 'orders', 'shipments', 'refunds', 'support', 'users', 'audit'];
+      if (savedTab && validTabs.includes(savedTab)) {
+        return savedTab;
+      }
+    } catch (e) {}
+    return 'dashboard';
+  });
+
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem('archon_admin_active_tab', tab);
+    } catch (e) {}
+  };
 
   const refundOrdersCount = orders.filter(
     (o) => o.status === 'REFUND_REQUESTED' || o.status === 'REFUNDED'

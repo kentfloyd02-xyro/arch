@@ -14,6 +14,65 @@ function normalizeUser(u) {
 
 const failedLoginAttempts = {};
 
+export const TRUST_DURATION_MS = 5 * 24 * 60 * 60 * 1000; // 5 days
+
+export function getOrCreateDeviceId() {
+  let id = localStorage.getItem('archon_device_id');
+  if (!id) {
+    id = 'dev-' + Math.random().toString(36).substring(2, 12) + '-' + Date.now().toString(36);
+    localStorage.setItem('archon_device_id', id);
+  }
+  return id;
+}
+
+export function getDeviceTrustKey(email) {
+  const clean = (email || '').trim().toLowerCase();
+  return `archon_trusted_device_${clean}`;
+}
+
+export function isDeviceTrusted(email) {
+  try {
+    const key = getDeviceTrustKey(email);
+    const raw = localStorage.getItem(key);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    const deviceId = getOrCreateDeviceId();
+    if (data && data.deviceId === deviceId && data.expiresAt && Date.now() < data.expiresAt) {
+      return true;
+    }
+    // Expired or mismatched device
+    localStorage.removeItem(key);
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+export function saveDeviceTrust(email) {
+  try {
+    const clean = (email || '').trim().toLowerCase();
+    if (!clean) return;
+    const key = getDeviceTrustKey(clean);
+    const deviceId = getOrCreateDeviceId();
+    const data = {
+      email: clean,
+      deviceId,
+      trustedAt: Date.now(),
+      expiresAt: Date.now() + TRUST_DURATION_MS
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save device trust:', e);
+  }
+}
+
+export function clearDeviceTrust(email) {
+  try {
+    const key = getDeviceTrustKey(email);
+    localStorage.removeItem(key);
+  } catch (e) {}
+}
+
 export const authService = {
   login: async (email, password) => {
     const res = await request('/auth/login', {
@@ -35,6 +94,43 @@ export const authService = {
         forcePasswordReset: true,
         message: 'Maximum password attempts exceeded (5/5). Your account has been locked. Please reset your password.'
       };
+    }
+
+    // CHECK IF THIS BROWSER/DEVICE IS TRUSTED FOR THIS EMAIL (5-DAY TRUST)
+    if (isDeviceTrusted(cleanEmail)) {
+      try {
+        const directRes = await authService.login(cleanEmail, password);
+        failedLoginAttempts[cleanEmail] = 0;
+
+        if (trustDevice !== false) {
+          saveDeviceTrust(cleanEmail);
+        }
+
+        if (directRes.token) {
+          localStorage.setItem('archon_token', directRes.token);
+        }
+        if (directRes.user) {
+          localStorage.setItem('archon_user', JSON.stringify(directRes.user));
+        }
+
+        return {
+          requireOtp: false,
+          trustedDevice: true,
+          email: cleanEmail,
+          token: directRes.token,
+          user: directRes.user,
+          message: 'Trusted device recognized. OTP verification skipped.'
+        };
+      } catch (err) {
+        failedLoginAttempts[cleanEmail] = (failedLoginAttempts[cleanEmail] || 0) + 1;
+        if (failedLoginAttempts[cleanEmail] >= 5) {
+          throw {
+            forcePasswordReset: true,
+            message: 'Maximum password attempts exceeded (5/5). Your account has been locked. Please reset your password.'
+          };
+        }
+        throw new Error(err.message || 'Invalid email or password.');
+      }
     }
 
     try {
@@ -78,6 +174,12 @@ export const authService = {
     }
     if (user) {
       localStorage.setItem('archon_user', JSON.stringify(user));
+    }
+
+    if (trustDevice) {
+      saveDeviceTrust(cleanEmail);
+    } else {
+      clearDeviceTrust(cleanEmail);
     }
 
     return {
