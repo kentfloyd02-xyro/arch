@@ -128,7 +128,7 @@ export default function CustomerProfilePage() {
             </label>
           ))}
 
-          <label className="block text-[10px] font-semibold text-slate-400">
+          {/* <label className="block text-[10px] font-semibold text-slate-400">
             Billing preference
             <select
               value={billingPreference}
@@ -139,7 +139,7 @@ export default function CustomerProfilePage() {
               <option value="business">Business purchase order</option>
               <option value="cash-on-delivery">Cash on delivery preference</option>
             </select>
-          </label>
+          </label> */}
 
           <button
             type="submit"
