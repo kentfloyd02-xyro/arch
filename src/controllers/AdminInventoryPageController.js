@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { api } from '../services/api';
 
 export function useAdminInventoryPageController() {
   const { products, setProducts, showToast } = useApp();
@@ -38,6 +39,12 @@ export function useAdminInventoryPageController() {
       return p;
     });
     setProducts(updated);
+    api.logActivity(
+      'inventory', 
+      'STOCK_ADJUSTED', 
+      `Adjusted stock for ${target.title} (${delta > 0 ? `+${delta}` : delta} units). New stock: ${Math.max(0, target.stock + delta)}`, 
+      target.title
+    );
     showToast(
       `Warehouse stock level adjusted (${delta > 0 ? `+${delta}` : delta}).`,
       'info'
@@ -85,18 +92,28 @@ export function useAdminInventoryPageController() {
           product.id === editingProductId ? { ...product, ...productData } : product
         )
       );
+      api.logActivity(
+        'inventory',
+        'PRODUCT_UPDATED',
+        `Updated product "${productData.title}" (Price: PHP ${productData.price}, Stock: ${productData.stock})`,
+        productData.title
+      );
       showToast('Product details updated in the catalog.', 'success');
     } else {
-      setProducts([
-        {
-          ...productData,
-          id: `prod-${Date.now()}`,
-          image:
-            productData.image ||
-            '/assets/images/leveling_mortar_1785519746126.png'
-        },
-        ...products
-      ]);
+      const newProd = {
+        ...productData,
+        id: `prod-${Date.now()}`,
+        image:
+          productData.image ||
+          '/assets/images/leveling_mortar_1785519746126.png'
+      };
+      setProducts([newProd, ...products]);
+      api.logActivity(
+        'inventory',
+        'PRODUCT_CREATED',
+        `Created new catalog product "${productData.title}" (Category: ${productData.category}, Price: PHP ${productData.price}, Stock: ${productData.stock})`,
+        productData.title
+      );
       showToast('Product added to the catalog.', 'success');
     }
     setIsProductFormOpen(false);

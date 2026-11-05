@@ -655,6 +655,7 @@ export function AppProvider({ children }) {
     try {
       const actor = currentUser ? { email: currentUser.email, name: currentUser.name, role: currentUser.role, id: currentUser._id || currentUser.id } : null;
       await api.cancelOrder(orderNumber, reason, actor);
+      api.logActivity('orders', 'ORDER_CANCELLED', `Order #${orderNumber} cancelled. Reason: ${reason}`, orderNumber);
     } catch (err) {
       console.warn('API cancelOrder warning:', err.message);
     }
@@ -739,6 +740,7 @@ export function AppProvider({ children }) {
     try {
       const actor = currentUser ? { email: currentUser.email, name: currentUser.name, role: currentUser.role, id: currentUser._id || currentUser.id } : null;
       await api.approveRefund(orderNumber, restoreStock, actor);
+      api.logActivity('refunds', 'REFUND_APPROVED', `Refund approved for Order #${orderNumber} (Restored inventory stock: ${restoreStock ? 'Yes' : 'No'})`, orderNumber);
     } catch (err) {
       console.warn('API approveRefund warning:', err.message);
     }
@@ -886,6 +888,7 @@ export function AppProvider({ children }) {
     try {
       const actor = currentUser ? { email: currentUser.email, name: currentUser.name, role: currentUser.role, id: currentUser._id || currentUser.id } : null;
       await api.updateOrderStatus(orderNumber, targetStatus, actor);
+      api.logActivity('orders', 'ORDER_STATUS_UPDATED', `Order #${orderNumber} delivery status advanced to ${targetStatus}`, orderNumber);
     } catch (err) {
       console.warn('API updateOrderStatus warning:', err.message);
     }

@@ -253,9 +253,10 @@ export const authService = {
 
   register: async (userData) => {
     const cleanPhone = (userData.phone || userData.phoneNumber || '').replace(/\D/g, '').slice(0, 11);
+    const cleanEmail = (userData.email || '').trim().toLowerCase();
     const payload = {
       fullName: userData.name || userData.fullName,
-      email: userData.email,
+      email: cleanEmail,
       password: userData.password,
       phoneNumber: cleanPhone,
       phone: cleanPhone,
@@ -270,19 +271,12 @@ export const authService = {
     });
 
     const user = res?.user || res?.data?.user;
-    const token = res?.token || res?.data?.token;
-
     const normalizedUser = normalizeUser(user);
-    if (token) {
-      localStorage.setItem('archon_token', token);
-    }
-    if (normalizedUser) {
-      localStorage.setItem('archon_user', JSON.stringify(normalizedUser));
-    }
 
     return {
-      token,
-      user: normalizedUser
+      success: true,
+      user: normalizedUser,
+      email: cleanEmail
     };
   },
 

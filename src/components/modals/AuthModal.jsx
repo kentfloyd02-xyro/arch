@@ -386,7 +386,7 @@ export default function AuthModal() {
     }
   };
 
-  // 6. REGISTER NEW CUSTOMER
+  // 6. REGISTER NEW CUSTOMER -> REQUIRES OTP VERIFICATION BEFORE DASHBOARD
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -403,27 +403,33 @@ export default function AuthModal() {
 
     setLoading(true);
     try {
-      const res = await api.register({
+      const cleanEmail = regEmail.trim().toLowerCase();
+
+      // 1. Create client account
+      await api.register({
         name: regName.trim(),
-        email: regEmail.trim().toLowerCase(),
+        email: cleanEmail,
         password: regPassword,
         phone: regPhone.trim(),
         defaultAddress: regAddress.trim() || null
       });
+
+      // 2. Set credentials and dispatch 2FA OTP verification
+      setEmail(cleanEmail);
+      setPassword(regPassword);
+
+      const deviceId = getOrCreateDeviceId();
+      // Dispatch 6-digit OTP to user's registered email
+      await api.loginInit(cleanEmail, regPassword, deviceId, trustDevice);
       setLoading(false);
 
-      if (res.token && res.user) {
-        if (loginWithAuth) {
-          loginWithAuth(res.user, res.token);
-        } else {
-          localStorage.setItem('archon_token', res.token);
-          localStorage.setItem('archon_user', JSON.stringify(res.user));
-          setCurrentUser(res.user);
-          setIsAuthOpen(false);
-          setCurrentView('customer-dashboard');
-        }
-        showToast(`Account created! Welcome to Archon Nell, ${res.user.name}.`, 'success');
-      }
+      // 3. Transition to OTP Verification screen (must verify before continuing)
+      setMode('LOGIN_OTP');
+      setTimeLeft(300);
+      setResendCooldown(60);
+      setOtpCode('');
+      setIsOtpAborted(false);
+      showToast(`Account registered! Verification code dispatched to ${cleanEmail}.`, 'info');
     } catch (err) {
       setLoading(false);
       setErrorMsg(err.message || 'Registration failed.');
@@ -470,18 +476,13 @@ export default function AuthModal() {
 
           <div className="p-7 sm:p-9">
             
-            {/* Archon Nell Logo */}
-            <div className="flex justify-center mb-1">
+            {/* Archon Nell Logo Banner */}
+            <div className="flex justify-center mb-5">
               <img 
-                src="/assets/images/archon_nell_logo.png" 
-                alt="Archon Nell Incorporated" 
-                className="h-10 sm:h-11 w-auto object-contain" 
+                src="/assets/images/archon_nell_terminal_logo.jpg" 
+                alt="Archon Nell Incorporated - Partner Innovator Solutions Provider" 
+                className="h-14 sm:h-16 w-auto max-w-[290px] object-contain" 
               />
-            </div>
-
-            {/* Tagline */}
-            <div className="text-[10px] sm:text-[11px] font-bold tracking-[0.2em] text-[#C25E38] text-center uppercase mb-5 font-mono">
-              PARTNER • INNOVATOR • SOLUTIONS PROVIDER
             </div>
 
             {/* Section Headings based on mode */}
