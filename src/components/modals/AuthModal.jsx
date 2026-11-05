@@ -530,7 +530,7 @@ export default function AuthModal() {
             </div>
 
           
-            {/* Trust this device for 5 days toggle on Login screen */}
+            {/* Trust this device for 5 days toggle on Login screen
             <div 
               onClick={() => setTrustDevice(!trustDevice)}
               className="flex items-center justify-between p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer shadow-sm text-left my-2"
@@ -564,7 +564,7 @@ export default function AuthModal() {
                   }`}
                 />
               </button>
-            </div>
+            </div> */}
 
             <button
               type="submit"
