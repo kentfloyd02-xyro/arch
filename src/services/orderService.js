@@ -70,6 +70,23 @@ export const orderService = {
         },
         performedBy: actor
       })
+    }),
+
+  rejectRefund: (orderNumber, rejectReason = 'Inspection criteria not met', actor = null) =>
+    request(`/shop/orders/${orderNumber}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        status: 'REFUND_REJECTED',
+        deliveryStatus: 'REFUND_REJECTED',
+        notes: rejectReason,
+        refundDetails: {
+          refundStatus: 'REJECTED',
+          rejectedReason: rejectReason,
+          rejectedAt: new Date().toISOString(),
+          trialUsed: true
+        },
+        performedBy: actor
+      })
     })
 };
 

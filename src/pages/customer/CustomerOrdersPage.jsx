@@ -8,7 +8,10 @@ import {
   Download,
   ShoppingBag,
   RotateCcw,
-  X
+  X,
+  AlertTriangle,
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
 
 const panelClass = 'rounded-2xl border border-[#142958] bg-[#0b1b3d] p-4 shadow-lg sm:p-6';
@@ -32,9 +35,10 @@ export default function CustomerOrdersPage() {
     openRefund,
     openRateModal,
     reorder,
-    downloadInvoice,
     printReturnLabel,
-    filteredOrders
+    filteredOrders,
+    rejectionPopupOrder,
+    dismissRejectionPopup
   } = useCustomerOrdersPageController();
 
   return (
@@ -44,7 +48,7 @@ export default function CustomerOrdersPage() {
         <div>
           <h2 className="text-sm font-extrabold text-white">Order history</h2>
           <p className="mt-1 text-[10px] text-slate-400">
-            Invoices, reorder, delivery progress, and returns
+            Reorder, delivery progress, and returns tracking
           </p>
         </div>
         <div className="flex gap-2">
@@ -70,6 +74,7 @@ export default function CustomerOrdersPage() {
             <option value="CANCELLED">CANCELLED</option>
             <option value="REFUND_REQUESTED">REFUND REQUESTED</option>
             <option value="REFUNDED">REFUNDED</option>
+            <option value="REFUND_REJECTED">RETURN REJECTED</option>
           </select>
         </div>
       </div>
@@ -84,7 +89,7 @@ export default function CustomerOrdersPage() {
           {filteredOrders.map((order) => (
             <article
               key={order.orderNumber}
-              className="rounded-xl border border-[#142958] bg-[#07132c] p-4"
+              className="rounded-xl border border-[#142958] bg-[#07132c] p-4 space-y-3"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -93,7 +98,7 @@ export default function CustomerOrdersPage() {
                       {order.orderNumber}
                     </strong>
                     <span
-                      className={`rounded-full px-2 py-1 text-[9px] font-bold ${order.statusBadgeClass}`}
+                      className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold ${order.statusBadgeClass}`}
                     >
                       {order.statusLabel}
                     </span>
@@ -106,7 +111,7 @@ export default function CustomerOrdersPage() {
               </div>
 
               {/* Items List */}
-              <div className="mt-3 space-y-2 border-t border-[#142958] pt-3">
+              <div className="space-y-2 border-t border-[#142958] pt-3">
                 {order.items.map((item, index) => (
                   <div
                     key={`${item.id}-${index}`}
@@ -117,31 +122,39 @@ export default function CustomerOrdersPage() {
                     </span>
                     <span className="font-mono">{item.formattedTotal}</span>
                     {order.delivered && (
-                      <button
-                        type="button"
-                        onClick={() => openRateModal(order)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[9px] font-bold text-amber-200 hover:bg-amber-500/20"
-                      >
-                        <Star
-                          size={11}
-                          className={order.rating ? 'fill-amber-400 text-amber-400' : ''}
-                        />
-                        {order.rating ? `Rated (${order.rating}★)` : 'Rate'}
-                      </button>
+                      (order.rating || order.customerRating || order.isRated) ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[9px] font-bold text-amber-300 cursor-default select-none"
+                          title="Rating locked"
+                        >
+                          <Star size={11} className="fill-amber-400 text-amber-400" />
+                          <span>Rated ({order.customerRating || order.rating || 5}★)</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openRateModal(order)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[9px] font-bold text-amber-200 hover:bg-amber-500/20"
+                        >
+                          <Star size={11} />
+                          <span>Rate</span>
+                        </button>
+                      )
                     )}
                   </div>
                 ))}
               </div>
 
               {order.deliveryAddress && (
-                <p className="mt-3 flex items-start gap-1.5 text-[10px] text-slate-400">
+                <p className="flex items-start gap-1.5 text-[10px] text-slate-400">
                   <MapPin size={13} className="mt-0.5 shrink-0" />
                   {order.deliveryAddress}
                 </p>
               )}
 
+              {/* Rating & Notes display */}
               {order.delivered && order.rating && (
-                <div className="mt-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 p-2.5 text-[10px] text-amber-200 flex items-start gap-2">
+                <div className="rounded-lg bg-amber-500/10 border border-amber-500/25 p-2.5 text-[10px] text-amber-200 flex items-start gap-2">
                   <div className="flex items-center gap-0.5 text-amber-400 shrink-0 mt-0.5">
                     {[...Array(order.rating)].map((_, i) => (
                       <Star key={i} size={11} fill="currentColor" />
@@ -154,8 +167,24 @@ export default function CustomerOrdersPage() {
                 </div>
               )}
 
+              {/* Rejection Notice Banner */}
+              {order.isRejectedRefund && (
+                <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-200">
+                  <div className="flex items-center gap-1.5 font-bold text-rose-300">
+                    <XCircle size={14} className="text-rose-400 shrink-0" />
+                    <span>Return Request Rejected (1-Trial Limit Policy)</span>
+                  </div>
+                  <p className="mt-1 text-slate-200 text-[11px]">
+                    <span className="font-semibold text-rose-300">Reason:</span> "{order.refundDetails?.rejectedReason || 'Claim criteria not met or invalid proof'}"
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    Under Archon Nell store policy, each item has a strict 1-trial return/refund limit. Further return submissions for this order are closed.
+                  </p>
+                </div>
+              )}
+
               {/* Order Actions */}
-              <div className="mt-3 flex flex-wrap gap-2 border-t border-[#142958] pt-3">
+              <div className="flex flex-wrap gap-2 border-t border-[#142958] pt-3">
                 <button
                   onClick={() => openTracking(order)}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-blue-500 transition-colors"
@@ -193,7 +222,8 @@ export default function CustomerOrdersPage() {
                   Reorder
                 </button>
 
-                {order.delivered && !order.returnRequested && (
+                {/* Return Request Button: ONLY if delivered AND trial has NOT been used */}
+                {order.canRequestReturn && (
                   <button
                     onClick={() => openRefund(order)}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 px-3 py-2 text-[10px] font-bold text-purple-200 hover:bg-purple-500/20 transition-colors"
@@ -203,7 +233,8 @@ export default function CustomerOrdersPage() {
                   </button>
                 )}
 
-                {order.returnRequested && (
+                {/* Print return label ONLY when return is currently under review */}
+                {order.returnRequested && !order.isRejectedRefund && (
                   <button
                     onClick={() => printReturnLabel(order)}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 px-3 py-2 text-[10px] font-bold text-purple-200 hover:bg-purple-500/20 transition-colors"
@@ -231,6 +262,68 @@ export default function CustomerOrdersPage() {
               )}
             </article>
           ))}
+        </div>
+      )}
+
+      {/* Customer Notification Popup for Rejected Return */}
+      {rejectionPopupOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0b1b3d] border border-rose-500/40 rounded-3xl max-w-md w-full shadow-2xl p-5 sm:p-6 text-white space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#142958]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-rose-500/20 border border-rose-500/30 rounded-xl text-rose-400">
+                  <XCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white">
+                    Return Claim Rejected
+                  </h3>
+                  <p className="text-xs font-mono text-rose-300">
+                    Order #{rejectionPopupOrder.orderNumber}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={dismissRejectionPopup}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#142958]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-300">
+                Your return/refund claim for Order <span className="font-mono font-bold text-white">#{rejectionPopupOrder.orderNumber}</span> has been reviewed by Archon Nell Quality Control and was <span className="text-rose-400 font-bold uppercase">Rejected</span>.
+              </p>
+
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/25">
+                <span className="block text-[10px] uppercase font-bold text-rose-300 mb-0.5">
+                  Rejection Reason:
+                </span>
+                <span className="text-slate-100 font-medium">
+                  "{rejectionPopupOrder.refundDetails?.rejectedReason || 'Claim did not satisfy engineering inspection standards.'}"
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-[11px] flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <span>
+                  <strong>1-Trial Return Policy:</strong> Each purchased order item is entitled to 1 return inspection evaluation only. Re-submitting return claims for this order is now disabled.
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={dismissRejectionPopup}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg transition-colors"
+              >
+                Understood &amp; Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

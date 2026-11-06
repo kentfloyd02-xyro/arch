@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 
 export function formatMoney(value) {
@@ -42,6 +42,7 @@ export function useCustomerOrdersPageController() {
   const [cancelModalOrder, setCancelModalOrder] = useState(null);
   const [cancelReasonType, setCancelReasonType] = useState('Ordered wrong product or size');
   const [cancelOtherReason, setCancelOtherReason] = useState('');
+  const [rejectionPopupOrder, setRejectionPopupOrder] = useState(null);
 
   const knownEmails = [currentUser?.email, ...(currentUser?.previousEmails || [])]
     .filter(Boolean)
@@ -57,6 +58,34 @@ export function useCustomerOrdersPageController() {
     return !knownEmails.length;
   });
 
+  // Popup check for newly rejected orders that haven't been acknowledged yet
+  useEffect(() => {
+    try {
+      const ackList = JSON.parse(localStorage.getItem('archon_ack_rejections') || '[]');
+      const newlyRejected = customerOrders.find(
+        (o) =>
+          (o.status === 'REFUND_REJECTED' || o.refundDetails?.refundStatus === 'REJECTED') &&
+          !ackList.includes(o.orderNumber)
+      );
+      if (newlyRejected) {
+        setRejectionPopupOrder(newlyRejected);
+      }
+    } catch {}
+  }, [customerOrders]);
+
+  const dismissRejectionPopup = () => {
+    if (rejectionPopupOrder) {
+      try {
+        const ackList = JSON.parse(localStorage.getItem('archon_ack_rejections') || '[]');
+        if (!ackList.includes(rejectionPopupOrder.orderNumber)) {
+          ackList.push(rejectionPopupOrder.orderNumber);
+          localStorage.setItem('archon_ack_rejections', JSON.stringify(ackList));
+        }
+      } catch {}
+      setRejectionPopupOrder(null);
+    }
+  };
+
   const q = search.trim().toLowerCase();
 
   const filteredOrders = customerOrders
@@ -69,10 +98,20 @@ export function useCustomerOrdersPageController() {
     })
     .map((order) => {
       const delivered = order.status === 'DELIVERED';
-      const returnRequested = ['REFUND_REQUESTED', 'REFUNDED'].includes(order.status);
+      const isApprovedRefund = order.status === 'REFUNDED' || order.refundDetails?.refundStatus === 'APPROVED';
+      const isRejectedRefund = order.status === 'REFUND_REJECTED' || order.refundDetails?.refundStatus === 'REJECTED';
+      const isRefundRequested = order.status === 'REFUND_REQUESTED' || order.refundDetails?.refundStatus === 'PENDING_REVIEW';
       const isCancelled = order.status === 'CANCELLED';
       const canCancel = ['CONFIRMED', 'PENDING'].includes(order.status);
       const inProgress = ['CONFIRMED', 'PREPARING', 'IN_TRANSIT'].includes(order.status);
+
+      // Strict 1-trial policy: once requested, approved, or rejected, return cannot be requested again
+      const isReturnTrialUsed =
+        isRefundRequested ||
+        isApprovedRefund ||
+        isRejectedRefund ||
+        Boolean(order.refundDetails?.trialUsed);
+      const canRequestReturn = delivered && !isReturnTrialUsed;
 
       const statusLabels = {
         CONFIRMED: 'Processing',
@@ -81,13 +120,20 @@ export function useCustomerOrdersPageController() {
         DELIVERED: 'Delivered',
         CANCELLED: 'Cancelled',
         REFUND_REQUESTED: 'Return under review',
-        REFUNDED: 'Refund completed'
+        REFUNDED: 'Refund completed',
+        REFUND_REJECTED: 'Return rejected'
       };
 
       const statusBadgeClass = delivered
         ? 'bg-emerald-500/15 text-emerald-300'
+        : isRejectedRefund
+        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
         : isCancelled
         ? 'bg-rose-500/15 text-rose-300'
+        : isApprovedRefund
+        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+        : isRefundRequested
+        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
         : 'bg-blue-500/15 text-blue-200';
 
       const items = (order.items || []).map((item) => ({
@@ -98,7 +144,12 @@ export function useCustomerOrdersPageController() {
       return {
         ...order,
         delivered,
-        returnRequested,
+        isApprovedRefund,
+        isRejectedRefund,
+        isRefundRequested,
+        isReturnTrialUsed,
+        canRequestReturn,
+        returnRequested: isRefundRequested,
         isCancelled,
         canCancel,
         inProgress,
@@ -145,6 +196,10 @@ export function useCustomerOrdersPageController() {
   };
 
   const openRefund = (order) => {
+    if (order.isReturnTrialUsed) {
+      showToast('Each order item has a strict 1-trial return policy.', 'warning');
+      return;
+    }
     setSelectedOrderForRefund(order);
     setIsRefundOpen(true);
   };
@@ -166,39 +221,6 @@ export function useCustomerOrdersPageController() {
         'success'
       );
     }
-  };
-
-  const downloadInvoice = (order) => {
-    const rawDate = order.date || order.createdAt || order.created_at;
-    const parsedDate = rawDate ? new Date(rawDate) : new Date();
-    const formattedDate = isNaN(parsedDate.getTime())
-      ? new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-      : parsedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-
-    const rows = (order.items || [])
-      .map(
-        (item) =>
-          `<tr><td>${escapeHtml(item.title)}</td><td>${item.quantity}</td><td>${formatMoney(
-            item.total ?? item.price * item.quantity
-          )}</td></tr>`
-      )
-      .join('');
-    const invoice = `<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${escapeHtml(
-      order.orderNumber
-    )}</title><style>body{font:14px Arial,sans-serif;color:#172033;padding:40px;max-width:800px;margin:auto}h1{color:#102750}table{border-collapse:collapse;width:100%;margin-top:24px}td,th{text-align:left;padding:12px;border-bottom:1px solid #dbe2ef}</style></head><body><h1>Archon Nell · Order Invoice</h1><p>Order ${escapeHtml(
-      order.orderNumber
-    )} · ${formattedDate}</p><p>${escapeHtml(
-      order.customerName
-    )}<br>${escapeHtml(order.customerEmail)}<br>${escapeHtml(
-      order.deliveryAddress
-    )}</p><table><thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><h2>Total: ${formatMoney(
-      order.totalAmount
-    )}</h2><p>Official Customer Invoice.</p></body></html>`;
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([invoice], { type: 'text/html' }));
-    link.download = `invoice-${order.orderNumber}.html`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   };
 
   const printReturnLabel = (order) => {
@@ -239,9 +261,10 @@ export function useCustomerOrdersPageController() {
     openRefund,
     openRateModal,
     reorder,
-    downloadInvoice,
     printReturnLabel,
-    filteredOrders
+    filteredOrders,
+    rejectionPopupOrder,
+    dismissRejectionPopup
   };
 }
 

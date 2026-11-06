@@ -842,6 +842,17 @@ export function AppProvider({ children }) {
       return false;
     }
 
+    if (
+      targetOrder.status === 'REFUND_REQUESTED' ||
+      targetOrder.status === 'REFUNDED' ||
+      targetOrder.status === 'REFUND_REJECTED' ||
+      targetOrder.refundDetails?.refundStatus === 'REJECTED' ||
+      Boolean(targetOrder.refundDetails?.trialUsed)
+    ) {
+      showToast('Each order item has a strict 1-trial policy for returns/refunds.', 'warning');
+      return false;
+    }
+
     try {
       const stored = JSON.parse(localStorage.getItem('archon_refund_status') || '{}');
       stored[orderNumber] = {
@@ -942,6 +953,66 @@ export function AppProvider({ children }) {
     setOrders(updatedOrders);
     showToast(`Refund approved for #${orderNumber}.`, 'success');
     refreshAllData().catch(() => {});
+  };
+
+  const rejectRefund = async (orderNumber, rejectReason = 'Inspection criteria not met or invalid proof') => {
+    const targetOrder = orders.find(o => o.orderNumber === orderNumber);
+    if (!targetOrder) {
+      showToast('Order not found.', 'error');
+      return false;
+    }
+
+    const actor = currentUser ? { email: currentUser.email, name: currentUser.name, role: currentUser.role, id: currentUser._id || currentUser.id } : null;
+
+    try {
+      const stored = JSON.parse(localStorage.getItem('archon_refund_status') || '{}');
+      stored[orderNumber] = {
+        status: 'REFUND_REJECTED',
+        deliveryStatus: 'REFUND_REJECTED',
+        refundDetails: {
+          ...(targetOrder.refundDetails || {}),
+          refundStatus: 'REJECTED',
+          rejectedReason: rejectReason,
+          rejectedAt: new Date().toISOString(),
+          trialUsed: true
+        }
+      };
+      localStorage.setItem('archon_refund_status', JSON.stringify(stored));
+    } catch {}
+
+    try {
+      await api.rejectRefund(orderNumber, rejectReason, actor);
+      api.logActivity('refunds', 'REFUND_REJECTED', `Refund claim rejected for Order #${orderNumber}. Reason: ${rejectReason}`, orderNumber);
+    } catch (err) {
+      console.warn('API rejectRefund warning:', err.message);
+    }
+
+    const updatedOrders = orders.map(o => {
+      if (o.orderNumber === orderNumber) {
+        return {
+          ...o,
+          status: 'REFUND_REJECTED',
+          deliveryStatus: 'REFUND_REJECTED',
+          refundDetails: {
+            ...(o.refundDetails || {}),
+            refundStatus: 'REJECTED',
+            rejectedReason: rejectReason,
+            rejectedAt: new Date().toISOString(),
+            trialUsed: true
+          }
+        };
+      }
+      return o;
+    });
+
+    setOrders(updatedOrders);
+    showToast(`Refund claim rejected for Order #${orderNumber}. Customer notified.`, 'info');
+    try {
+      localStorage.setItem('archon_last_sync', Date.now().toString());
+      window.dispatchEvent(new Event('archon_sync'));
+    } catch {}
+    refreshAllData().catch(() => {});
+    return true;
   };
 
   
@@ -1181,6 +1252,7 @@ export function AppProvider({ children }) {
         cancelOrder,
         requestRefund,
         approveRefund,
+        rejectRefund,
         updateOrderStatus,
         reviews,
         addReview,
