@@ -42,7 +42,8 @@ export default function CartDrawer() {
 
   const [inputCode, setInputCode] = useState('');
 
-  if (!isCartOpen || currentUser?.role === 'admin') return null;
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.global_role === 'admin' || currentUser?.global_role === 'superadmin';
+  if (!isCartOpen || isAdmin) return null;
 
   const handleApplyVoucher = (e) => {
     e.preventDefault();

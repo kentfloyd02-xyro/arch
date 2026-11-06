@@ -222,8 +222,6 @@ export function AppProvider({ children }) {
     return null;
   });
 
-  const [cart, setCart] = useState([]);
-
   // Helper: get the localStorage key for a specific user's cart
   const getUserCartKey = (userId) => userId ? `archon_cart_${userId}` : null;
 
@@ -247,10 +245,32 @@ export function AppProvider({ children }) {
     } catch {}
   };
 
-  // Whenever cart changes, persist it only if user is logged in
+  const [cart, setCart] = useState(() => {
+    try {
+      const savedUserRaw = localStorage.getItem('archon_user');
+      const savedUser = savedUserRaw ? JSON.parse(savedUserRaw) : null;
+      if (savedUser?.id && savedUser.role !== 'admin') {
+        const userSaved = localStorage.getItem(`archon_cart_${savedUser.id}`);
+        if (userSaved) return JSON.parse(userSaved);
+      }
+      if (!savedUser) {
+        const guestSaved = localStorage.getItem('archon_cart');
+        return guestSaved ? JSON.parse(guestSaved) : [];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Whenever cart changes, persist it (per-user if logged in, guest slot if logged out)
   useEffect(() => {
     if (currentUser?.id && currentUser?.role !== 'admin') {
       saveCartForUser(currentUser.id, cart);
+    } else if (!currentUser) {
+      try {
+        localStorage.setItem('archon_cart', JSON.stringify(cart));
+      } catch {}
     }
   }, [cart, currentUser]);
 

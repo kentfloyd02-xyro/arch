@@ -138,20 +138,22 @@ export default function Navbar() {
               <Headphones className="w-5 h-5" />
             </button>
 
-            {/* Cart Button */}
-            <button
-              onClick={() => setIsCartOpen(true)}
-              className="relative p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-md transition-all flex items-center gap-2 group"
-              title="View Cart"
-            >
-              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-105 transition-transform" />
-              <span className="text-xs font-bold hidden sm:inline">Cart</span>
-              {currentUser && currentUser.role !== 'admin' && totalItemCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white font-extrabold text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow border-2 border-[#0b1b3d]">
-                  {totalItemCount}
-                </span>
-              )}
-            </button>
+            {/* Cart Button (Inaccessible & Hidden for Admins) */}
+            {currentUser?.role !== 'admin' && currentUser?.global_role !== 'admin' && currentUser?.global_role !== 'superadmin' && (
+              <button
+                onClick={() => setIsCartOpen(true)}
+                className="relative p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-md transition-all flex items-center gap-2 group"
+                title="View Cart"
+              >
+                <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-105 transition-transform" />
+                <span className="text-xs font-bold hidden sm:inline">Cart</span>
+                {totalItemCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white font-extrabold text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow border-2 border-[#0b1b3d]">
+                    {totalItemCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* AUTH / LOGIN & DASHBOARD BUTTON */}
             {!currentUser ? (

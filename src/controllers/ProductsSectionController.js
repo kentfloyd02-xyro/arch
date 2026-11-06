@@ -53,6 +53,11 @@ export function useProductsSectionController() {
       setIsAuthOpen(true);
       return;
     }
+    const isAdmin = currentUser.role === 'admin' || currentUser.global_role === 'admin' || currentUser.global_role === 'superadmin';
+    if (isAdmin) {
+      showToast('Admin accounts cannot place orders. Please use a customer account.', 'warning');
+      return;
+    }
     if (product.stock <= 0) return;
     addToCart(product, 1);
     setIsCheckoutOpen(true);
