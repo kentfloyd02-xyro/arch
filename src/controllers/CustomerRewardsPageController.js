@@ -34,7 +34,7 @@ export function useCustomerRewardsPageController() {
           }));
         }
       })
-      .catch((err) => console.warn('Coupons fetch:', err.message));
+      .catch(() => {});
   }, []);
 
   const storagePrefix = `archon-customer-${currentUser?.id || 'guest'}`;

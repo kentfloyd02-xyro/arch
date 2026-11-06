@@ -3,17 +3,7 @@ import { useApp } from '../context/AppContext';
 import { api } from '../services/api';
 
 export function useAdminDashboardPageController() {
-  const { orders, products, refreshAllData } = useApp();
-
-  useEffect(() => {
-    if (refreshAllData) {
-      refreshAllData().catch(() => {});
-      const interval = setInterval(() => {
-        refreshAllData().catch(() => {});
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [refreshAllData]);
+  const { orders, products } = useApp();
 
   const [showPrices, setShowPrices] = useState(() => {
     try {

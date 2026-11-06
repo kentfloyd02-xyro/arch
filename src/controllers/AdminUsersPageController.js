@@ -49,10 +49,6 @@ export function useAdminUsersPageController() {
 
   useEffect(() => {
     fetchRegisteredUsers();
-    const interval = setInterval(() => {
-      fetchRegisteredUsers(true);
-    }, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   // Aggregation of registered users and order guest customers

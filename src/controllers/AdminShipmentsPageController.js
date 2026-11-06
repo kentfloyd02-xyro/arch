@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
 export function mapStatusToKey(status) {
@@ -20,20 +20,10 @@ export function formatStatusLabel(status) {
 }
 
 export function useAdminShipmentsPageController() {
-  const { orders, showToast, refreshAllData } = useApp();
+  const { orders, showToast } = useApp();
 
   const [shipmentSearch, setShipmentSearch] = useState('');
   const [shipmentStatusFilter, setShipmentStatusFilter] = useState('all');
-
-  useEffect(() => {
-    if (refreshAllData) {
-      refreshAllData().catch(() => {});
-      const interval = setInterval(() => {
-        refreshAllData().catch(() => {});
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [refreshAllData]);
 
   const printOrderDocument = (order, type) => {
     const isInvoice = type === 'invoice';

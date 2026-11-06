@@ -22,7 +22,7 @@ export function formatStatusLabel(status) {
 }
 
 export function useAdminOrdersPageController() {
-  const { orders, updateOrderStatus, cancelOrder, showToast, refreshAllData } = useApp();
+  const { orders, updateOrderStatus, cancelOrder, showToast } = useApp();
 
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
@@ -32,16 +32,6 @@ export function useAdminOrdersPageController() {
   );
   const [adminCancelOtherReason, setAdminCancelOtherReason] = useState('');
   const [withheldEmails, setWithheldEmails] = useState(new Set());
-
-  useEffect(() => {
-    if (refreshAllData) {
-      refreshAllData().catch(() => {});
-      const interval = setInterval(() => {
-        refreshAllData().catch(() => {});
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [refreshAllData]);
 
   useEffect(() => {
     const updateWithheld = (list) => {
@@ -75,10 +65,6 @@ export function useAdminOrdersPageController() {
     };
 
     api.getCustomers().then(updateWithheld).catch(() => updateWithheld([]));
-    const interval = setInterval(() => {
-      api.getCustomers().then(updateWithheld).catch(() => updateWithheld([]));
-    }, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   const openCancelModal = (orderNumber) => {

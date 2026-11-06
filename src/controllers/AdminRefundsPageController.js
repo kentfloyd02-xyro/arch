@@ -1,18 +1,7 @@
-import { useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 
 export function useAdminRefundsPageController() {
-  const { orders, approveRefund, refreshAllData } = useApp();
-
-  useEffect(() => {
-    if (refreshAllData) {
-      refreshAllData().catch(() => {});
-      const interval = setInterval(() => {
-        refreshAllData().catch(() => {});
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [refreshAllData]);
+  const { orders, approveRefund } = useApp();
 
   const refundOrders = orders
     .filter((o) => {

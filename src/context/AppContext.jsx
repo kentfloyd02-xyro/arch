@@ -37,32 +37,14 @@ export function AppProvider({ children }) {
     }
   }, [currentView]);
 
-  const [products, setProducts] = useState(() => {
-    try {
-      const cached = localStorage.getItem('archon_cached_products');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [projects, setProjects] = useState(() => {
-    try {
-      const cached = localStorage.getItem('archon_cached_projects');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [products, setProducts] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [orders, setOrders] = useState([]);
   const [reviews, setReviews] = useState({});
 
   const [isApiConnected, setIsApiConnected] = useState(false);
   const [isApiLoading, setIsApiLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
-
-  const dismissLoading = useCallback(() => {
-    setIsApiLoading(false);
-  }, []);
 
   const refreshAllData = useCallback(async () => {
     setIsApiLoading(true);
@@ -75,19 +57,11 @@ export function AppProvider({ children }) {
       // Check health first or fetch alongside
       const healthPromise = checkApiHealth().catch(() => false);
 
-      const [isHealthy, liveProducts, liveOrders, liveProjects] = await Promise.all([
+      const [isHealthy, liveProducts, liveOrders] = await Promise.all([
         healthPromise,
         api.getProducts().catch(() => null),
-        token ? api.getOrders().catch(() => null) : Promise.resolve(null),
-        api.getProjects().catch(() => [])
+        token ? api.getOrders().catch(() => null) : Promise.resolve(null)
       ]);
-
-      if (Array.isArray(liveProjects) && liveProjects.length > 0) {
-        setProjects(liveProjects);
-        try {
-          localStorage.setItem('archon_cached_projects', JSON.stringify(liveProjects));
-        } catch {}
-      }
 
       let formattedProducts = [];
       if (Array.isArray(liveProducts) && liveProducts.length > 0) {
@@ -106,11 +80,6 @@ export function AppProvider({ children }) {
           discount: p.discount || ''
         }));
         setProducts(formattedProducts);
-        try {
-          localStorage.setItem('archon_cached_products', JSON.stringify(formattedProducts));
-        } catch {}
-      } else if (liveProducts === null) {
-        // Backend temporarily unreachable, keep cached products
       } else {
         setProducts([]);
       }
@@ -195,6 +164,10 @@ export function AppProvider({ children }) {
         setReviews({});
       }
 
+      // Load engineering projects showcase
+      const liveProjects = await api.getProjects().catch(() => []);
+      setProjects(Array.isArray(liveProjects) ? liveProjects : []);
+
       const connected = Boolean(isHealthy || (liveProducts && liveProducts.length >= 0));
       setIsApiConnected(connected);
       if (connected) {
@@ -204,6 +177,10 @@ export function AppProvider({ children }) {
       console.warn('[Backend API Offline]', err.message);
       setIsApiConnected(false);
       setApiError(err.message || 'Unable to connect to backend API server and database');
+      setProducts([]);
+      setProjects([]);
+      setReviews({});
+      setOrders([]);
     } finally {
       setIsApiLoading(false);
     }
@@ -1061,7 +1038,7 @@ export function AppProvider({ children }) {
         otpState, setOtpState,
         triggerOtp, verifyOtpCode,
         toastMessage, showToast,
-        isApiConnected, isApiLoading, apiError, refreshAllData, dismissLoading
+        isApiConnected, isApiLoading, apiError, refreshAllData
       }}
     >
       {children}

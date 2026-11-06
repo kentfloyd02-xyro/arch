@@ -1,22 +1,14 @@
-const isHttpsOrigin = typeof window !== 'undefined' && window.location.protocol === 'https:';
-const isLocalhostHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-const envApiBase = import.meta.env.VITE_API_BASE_URL;
-
-let rawApiBase = envApiBase;
-if (!rawApiBase || (isHttpsOrigin && rawApiBase.startsWith('http://localhost') && !isLocalhostHost)) {
-  if (typeof window !== 'undefined' && !isLocalhostHost) {
-    rawApiBase = `${window.location.origin}/api/v1`;
-  } else {
-    rawApiBase = 'http://localhost:4000/api/v1';
-  }
-}
+const rawApiBase =
+  import.meta.env.VITE_API_BASE_URL ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? `${window.location.origin}/api/v1`
+    : 'http://localhost:4000/api/v1');
 
 export const API_BASE = rawApiBase.replace(/\/+$/, '');
 export const BASE_URL = (
   import.meta.env.VITE_BASE_URL ||
   API_BASE.replace(/\/api\/v1$/, '').replace(/\/api$/, '') ||
-  (typeof window !== 'undefined' && !isLocalhostHost ? window.location.origin : 'http://localhost:4000')
+  'http://localhost:4000'
 ).replace(/\/+$/, '');
 
 export async function request(endpoint, options = {}) {
@@ -36,13 +28,8 @@ export async function request(endpoint, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 6000);
-  const signal = options.signal || controller.signal;
-
   try {
-    const res = await fetch(url, { ...options, headers, signal });
-    clearTimeout(timeoutId);
+    const res = await fetch(url, { ...options, headers });
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
@@ -64,17 +51,13 @@ export async function request(endpoint, options = {}) {
     // In arch_api, standard response format is { success: true, data: [...] }
     return data.data !== undefined ? data.data : data;
   } catch (err) {
-    clearTimeout(timeoutId);
     throw err;
   }
 }
 
 export async function checkApiHealth() {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-    const res = await fetch(`${BASE_URL}/health`, { method: 'GET', signal: controller.signal });
-    clearTimeout(timeoutId);
+    const res = await fetch(`${BASE_URL}/health`, { method: 'GET' });
     return res.ok;
   } catch {
     return false;

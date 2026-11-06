@@ -1,18 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../services/api';
 
 export function useAdminInventoryPageController() {
   const { products, setProducts, showToast, refreshAllData } = useApp();
-
-  useEffect(() => {
-    if (refreshAllData) {
-      const interval = setInterval(() => {
-        refreshAllData().catch(() => {});
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [refreshAllData]);
 
   const [productSearch, setProductSearch] = useState('');
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);

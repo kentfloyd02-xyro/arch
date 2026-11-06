@@ -8,7 +8,7 @@ export function useAdminSupportPageController() {
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportReplies, setSupportReplies] = useState({});
   const [selectedSupportInquiry, setSelectedSupportInquiry] = useState(null);
-  const [supportStatusFilter, setSupportStatusFilter] = useState('all');
+  const [supportStatusFilter, setSupportStatusFilter] = useState('open');
   const [supportDetailLoading, setSupportDetailLoading] = useState(false);
   const selectedInquiryRef = useRef(null);
 
@@ -198,11 +198,6 @@ export function useAdminSupportPageController() {
 
   useEffect(() => {
     fetchSupportInquiries();
-    // Real-time polling every 5 seconds so admin sees incoming inquiries automatically
-    const interval = setInterval(() => {
-      fetchSupportInquiries(true);
-    }, 5000);
-    return () => clearInterval(interval);
   }, [fetchSupportInquiries]);
 
   return {
