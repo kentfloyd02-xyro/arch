@@ -205,20 +205,37 @@ export function AppProvider({ children }) {
     };
   }, [refreshAllData]);
 
-  const [cart, setCart] = useState(() => {
+  const [cart, setCart] = useState([]);
+
+  // Helper: get the localStorage key for a specific user's cart
+  const getUserCartKey = (userId) => userId ? `archon_cart_${userId}` : null;
+
+  // Load cart from storage for the given user (or empty if no user)
+  const loadCartForUser = (userId) => {
+    if (!userId) return [];
     try {
-      const saved = localStorage.getItem('archon_cart');
+      const key = getUserCartKey(userId);
+      const saved = localStorage.getItem(key);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
-  });
+  };
 
-  useEffect(() => {
+  // Save cart to storage tied to specific user
+  const saveCartForUser = (userId, cartData) => {
+    if (!userId) return;
     try {
-      localStorage.setItem('archon_cart', JSON.stringify(cart));
+      localStorage.setItem(getUserCartKey(userId), JSON.stringify(cartData));
     } catch {}
-  }, [cart]);
+  };
+
+  // Whenever cart changes, persist it only if user is logged in
+  useEffect(() => {
+    if (currentUser?.id && currentUser?.role !== 'admin') {
+      saveCartForUser(currentUser.id, cart);
+    }
+  }, [cart, currentUser]);
 
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState(null);
@@ -238,6 +255,11 @@ export function AppProvider({ children }) {
         if (user) {
           setCurrentUser(user);
           localStorage.setItem('archon_user', JSON.stringify(user));
+          // Restore this user's saved cart on page load
+          if (user.role !== 'admin') {
+            const savedCart = loadCartForUser(user.id);
+            setCart(savedCart);
+          }
         }
       }).catch(err => {
         console.warn('Session expired or invalid:', err.message);
@@ -245,6 +267,7 @@ export function AppProvider({ children }) {
         localStorage.removeItem('archon_user');
         localStorage.setItem('archon_current_view', 'store');
         setCurrentUser(null);
+        setCart([]);
         setCurrentView('store');
       });
     }
@@ -272,6 +295,14 @@ export function AppProvider({ children }) {
     setCurrentUser(user);
     setIsAuthOpen(false);
 
+    // Restore this user's saved cart on login
+    if (user.role !== 'admin') {
+      const savedCart = loadCartForUser(user.id);
+      setCart(savedCart);
+    } else {
+      setCart([]);
+    }
+
     // Refresh orders now that token is present
     refreshAllData();
 
@@ -289,11 +320,17 @@ export function AppProvider({ children }) {
   };
 
   const logoutUser = () => {
+    // Save current cart to user's storage slot before clearing it from view
+    if (currentUser?.id && currentUser?.role !== 'admin') {
+      saveCartForUser(currentUser.id, cart);
+    }
     localStorage.removeItem('archon_token');
     localStorage.removeItem('archon_user');
     localStorage.setItem('archon_current_view', 'store');
     setCurrentUser(null);
     setOrders([]);
+    setCart([]); // Clear cart from screen on logout (counter goes to 0)
+    setIsCartOpen(false);
     setCurrentView('store');
     showToast('Signed out successfully.', 'info');
   };

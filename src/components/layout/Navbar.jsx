@@ -146,7 +146,7 @@ export default function Navbar() {
             >
               <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-105 transition-transform" />
               <span className="text-xs font-bold hidden sm:inline">Cart</span>
-              {totalItemCount > 0 && (
+              {currentUser && currentUser.role !== 'admin' && totalItemCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white font-extrabold text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow border-2 border-[#0b1b3d]">
                   {totalItemCount}
                 </span>
