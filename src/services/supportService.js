@@ -45,39 +45,50 @@ export const supportService = {
   },
 
   createSupportInquiry: async (data) => {
+    let result = null;
     try {
-      return await request('/support/inquiries', {
+      result = await request('/support/inquiries', {
         method: 'POST',
         body: JSON.stringify(data)
       });
-    } catch {
-      // Local persistent fallback
-      const tickets = getLocalTickets();
-      const ticketId = 'ticket_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-      const ticketNumber = 'TK-' + Math.floor(10000 + Math.random() * 90000);
-      const guestAccessToken = 'guest_token_' + Math.random().toString(36).slice(2);
-
-      const newTicket = {
-        _id: ticketId,
-        id: ticketId,
-        ticketNumber,
-        status: 'open',
-        customerName: data.customerName || 'Customer',
-        customerEmail: data.customerEmail || 'guest@archonnell.com',
-        customerId: data.customerId || null,
-        question: data.question || '',
-        messages: Array.isArray(data.messages) ? data.messages : [
-          { sender: 'user', text: data.question, createdAt: new Date().toISOString() }
-        ],
-        guestAccessToken,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      tickets.unshift(newTicket);
-      saveLocalTickets(tickets);
-      return newTicket;
+    } catch (err) {
+      console.warn('[Support Service createInquiry]:', err.message);
     }
+
+    const tickets = getLocalTickets();
+    const ticketId = result?._id || result?.id || ('ticket_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+    const ticketNumber = result?.ticketNumber || ('TK-' + Math.floor(10000 + Math.random() * 90000));
+    const guestAccessToken = result?.guestAccessToken || ('guest_token_' + Math.random().toString(36).slice(2));
+
+    const initialMessages = Array.isArray(data.messages) && data.messages.length > 0
+      ? data.messages
+      : [{ sender: 'user', text: data.question, createdAt: new Date().toISOString() }];
+
+    const newTicket = {
+      ...result,
+      _id: ticketId,
+      id: ticketId,
+      ticketNumber,
+      status: 'open',
+      customerName: data.customerName || 'Customer',
+      customerEmail: data.customerEmail || 'guest@archonnell.com',
+      customerId: data.customerId || null,
+      question: data.question || '',
+      messages: result?.messages || initialMessages,
+      guestAccessToken,
+      createdAt: result?.createdAt || new Date().toISOString(),
+      updatedAt: result?.updatedAt || new Date().toISOString()
+    };
+
+    const existingIdx = tickets.findIndex(t => (t._id || t.id) === ticketId || t.ticketNumber === ticketNumber);
+    if (existingIdx >= 0) {
+      tickets[existingIdx] = newTicket;
+    } else {
+      tickets.unshift(newTicket);
+    }
+    saveLocalTickets(tickets);
+
+    return result || newTicket;
   },
 
   getSupportInquiries: async (params = {}) => {
@@ -107,31 +118,39 @@ export const supportService = {
   },
 
   addSupportMessage: async (id, text, guestAccessToken) => {
+    let result = null;
     try {
-      return await request(`/support/inquiries/${encodeURIComponent(id)}/messages`, {
+      result = await request(`/support/inquiries/${encodeURIComponent(id)}/messages`, {
         method: 'POST',
         headers: guestAccessToken ? { 'X-Support-Access-Token': guestAccessToken } : {},
         body: JSON.stringify({ text })
       });
-    } catch {
-      const tickets = getLocalTickets();
-      const ticketIndex = tickets.findIndex((t) => (t._id || t.id) === id);
-      if (ticketIndex === -1) throw new Error('Ticket not found.');
+    } catch (err) {
+      console.warn('[Support Service addMessage]:', err.message);
+    }
 
-      const newMsg = {
-        _id: 'msg_' + Date.now(),
-        sender: 'user',
-        text,
-        createdAt: new Date().toISOString()
-      };
+    const tickets = getLocalTickets();
+    const ticketIndex = tickets.findIndex((t) => (t._id || t.id) === id || t.ticketNumber === id);
+    const newMsg = result?.message || {
+      _id: 'msg_' + Date.now(),
+      sender: 'user',
+      text,
+      createdAt: new Date().toISOString()
+    };
 
+    if (ticketIndex !== -1) {
       if (!tickets[ticketIndex].messages) tickets[ticketIndex].messages = [];
-      tickets[ticketIndex].messages.push(newMsg);
+      const msgExists = tickets[ticketIndex].messages.some(
+        (m) => (m._id || m.id) === newMsg._id || (m.sender === newMsg.sender && m.text === newMsg.text && m.createdAt === newMsg.createdAt)
+      );
+      if (!msgExists) {
+        tickets[ticketIndex].messages.push(newMsg);
+      }
       tickets[ticketIndex].updatedAt = new Date().toISOString();
       saveLocalTickets(tickets);
-
-      return { success: true, message: newMsg };
     }
+
+    return result || { success: true, message: newMsg };
   },
 
   replyToSupportInquiry: async (id, reply) => {

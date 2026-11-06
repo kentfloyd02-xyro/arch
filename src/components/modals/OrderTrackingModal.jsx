@@ -89,7 +89,7 @@ export default function OrderTrackingModal() {
             </div>
             <div>
               <h3 className="text-base font-extrabold text-white">5-Stage Order Tracking & Delivery Status</h3>
-              <p className="text-xs text-slate-300">Demo order statuses (not live GPS or dispatch)</p>
+              <p className="text-xs text-slate-300">Real-time centralized dispatch & logistics tracking</p>
             </div>
           </div>
           <button

@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { api } from '../services/api';
+import { maskEmail, maskPhone, maskAddress } from './AdminUsersPageController';
 
 export function mapStatusToKey(status) {
   if (!status) return 'pending';
@@ -20,7 +22,7 @@ export function formatStatusLabel(status) {
 }
 
 export function useAdminOrdersPageController() {
-  const { orders, updateOrderStatus, cancelOrder, showToast } = useApp();
+  const { orders, updateOrderStatus, cancelOrder, showToast, refreshAllData } = useApp();
 
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
@@ -29,6 +31,55 @@ export function useAdminOrdersPageController() {
     'Ordered wrong product or size'
   );
   const [adminCancelOtherReason, setAdminCancelOtherReason] = useState('');
+  const [withheldEmails, setWithheldEmails] = useState(new Set());
+
+  useEffect(() => {
+    if (refreshAllData) {
+      refreshAllData().catch(() => {});
+      const interval = setInterval(() => {
+        refreshAllData().catch(() => {});
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [refreshAllData]);
+
+  useEffect(() => {
+    const updateWithheld = (list) => {
+      const set = new Set();
+      (Array.isArray(list) ? list : []).forEach((c) => {
+        if (c.privacyConsent && c.privacyConsent.granted === false && c.email) {
+          set.add(c.email.toLowerCase().trim());
+        }
+      });
+      try {
+        const rawCache = localStorage.getItem('archon_registered_customers_cache');
+        if (rawCache) {
+          const cache = JSON.parse(rawCache);
+          if (Array.isArray(cache)) {
+            cache.forEach((c) => {
+              if (c.privacyConsent && c.privacyConsent.granted === false && c.email) {
+                set.add(c.email.toLowerCase().trim());
+              }
+            });
+          }
+        }
+        const rawUser = localStorage.getItem('archon_user');
+        if (rawUser) {
+          const u = JSON.parse(rawUser);
+          if (u.privacyConsent && u.privacyConsent.granted === false && u.email) {
+            set.add(u.email.toLowerCase().trim());
+          }
+        }
+      } catch {}
+      setWithheldEmails(set);
+    };
+
+    api.getCustomers().then(updateWithheld).catch(() => updateWithheld([]));
+    const interval = setInterval(() => {
+      api.getCustomers().then(updateWithheld).catch(() => updateWithheld([]));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const openCancelModal = (orderNumber) => {
     setAdminCancelOrderNumber(orderNumber);
@@ -166,6 +217,9 @@ export function useAdminOrdersPageController() {
 
       const nextConfig = nextConfigMap[order.status] || null;
 
+      const emailKey = (order.customerEmail || '').toLowerCase().trim();
+      const isWithheld = withheldEmails.has(emailKey);
+
       return {
         ...order,
         mappedKey,
@@ -173,6 +227,10 @@ export function useAdminOrdersPageController() {
         isCancelled,
         isDelivered,
         isRefund,
+        isWithheld,
+        displayCustomerEmail: isWithheld ? maskEmail(order.customerEmail) : (order.customerEmail || '—'),
+        displayCustomerPhone: isWithheld ? maskPhone(order.customerPhone) : (order.customerPhone || '—'),
+        displayDeliveryAddress: isWithheld ? maskAddress(order.deliveryAddress) : (order.deliveryAddress || 'No address specified'),
         statusLabel: formatStatusLabel(order.status),
         statusBadgeClass,
         nextConfig,

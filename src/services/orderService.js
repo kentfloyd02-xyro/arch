@@ -21,13 +21,55 @@ export const orderService = {
   updateOrderStatus: (orderNumber, newStatus, performedBy = null) =>
     request(`/shop/orders/${orderNumber}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status: newStatus, notes: performedBy ? `Updated by ${performedBy}` : undefined })
+      body: JSON.stringify({ 
+        status: newStatus, 
+        deliveryStatus: newStatus,
+        notes: performedBy ? `Updated by ${typeof performedBy === 'object' ? performedBy.name : performedBy}` : undefined,
+        performedBy 
+      })
     }),
 
-  cancelOrder: (orderNumber, reason) =>
+  cancelOrder: (orderNumber, reason, actor = null) =>
     request(`/shop/orders/${orderNumber}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status: 'Cancelled', notes: reason })
+      body: JSON.stringify({ 
+        status: 'CANCELLED',
+        deliveryStatus: 'CANCELLED',
+        cancelReason: reason,
+        notes: reason,
+        performedBy: actor
+      })
+    }),
+
+  requestRefund: (orderNumber, { reason, damagePhoto, details }) =>
+    request(`/shop/orders/${orderNumber}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        status: 'REFUND_REQUESTED',
+        deliveryStatus: 'REFUND_REQUESTED',
+        refundDetails: {
+          reason,
+          damagePhoto,
+          details,
+          requestedAt: new Date().toISOString(),
+          refundStatus: 'PENDING_REVIEW'
+        }
+      })
+    }),
+
+  approveRefund: (orderNumber, restoreStock = true, actor = null) =>
+    request(`/shop/orders/${orderNumber}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        status: 'REFUNDED',
+        deliveryStatus: 'REFUNDED',
+        restoreStock,
+        refundDetails: {
+          refundStatus: 'APPROVED',
+          approvedAt: new Date().toISOString()
+        },
+        performedBy: actor
+      })
     })
 };
 

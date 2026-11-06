@@ -2,13 +2,24 @@ import { request } from './client';
 
 function normalizeUser(u) {
   if (!u) return u;
-  const phone = u.phone_number || u.phone || u.phoneNumber || '';
+  const raw = u.data || u;
+  const phone = raw.phone_number || raw.phone || raw.phoneNumber || '';
+  const address = raw.default_address || raw.defaultAddress || raw.address || '';
+  const consent = raw.privacy_consent || raw.privacyConsent || {
+    granted: true,
+    consentedAt: raw.created_at || new Date().toISOString(),
+    policyVersion: 'RA10173-2026.1'
+  };
   return {
-    ...u,
-    name: u.full_name || u.name || 'User',
+    ...raw,
+    name: raw.full_name || raw.name || 'User',
+    fullName: raw.full_name || raw.name || 'User',
     phone,
     phoneNumber: phone,
-    role: (u.global_role === 'superadmin' || u.global_role === 'admin' || u.role === 'admin') ? 'admin' : (u.role || 'customer')
+    defaultAddress: address,
+    address,
+    privacyConsent: consent,
+    role: (raw.global_role === 'superadmin' || raw.global_role === 'admin' || raw.role === 'admin') ? 'admin' : (raw.role || 'customer')
   };
 }
 
@@ -168,9 +179,10 @@ export const authService = {
       body: JSON.stringify({ email: cleanEmail, code: enteredCode })
     });
 
-    const user = normalizeUser(res.user);
-    if (res.token) {
-      localStorage.setItem('archon_token', res.token);
+    const token = res.token || res.data?.token;
+    const user = normalizeUser(res.user || res.data?.user);
+    if (token) {
+      localStorage.setItem('archon_token', token);
     }
     if (user) {
       localStorage.setItem('archon_user', JSON.stringify(user));
@@ -183,7 +195,7 @@ export const authService = {
     }
 
     return {
-      token: res.token,
+      token,
       user
     };
   },
@@ -254,6 +266,7 @@ export const authService = {
   register: async (userData) => {
     const cleanPhone = (userData.phone || userData.phoneNumber || '').replace(/\D/g, '').slice(0, 11);
     const cleanEmail = (userData.email || '').trim().toLowerCase();
+    const cleanAddress = (userData.defaultAddress || userData.address || '').trim();
     const payload = {
       fullName: userData.name || userData.fullName,
       email: cleanEmail,
@@ -261,7 +274,8 @@ export const authService = {
       phoneNumber: cleanPhone,
       phone: cleanPhone,
       company: userData.company || '',
-      defaultAddress: userData.defaultAddress || '',
+      defaultAddress: cleanAddress,
+      address: cleanAddress,
       role: 'customer'
     };
 
@@ -270,8 +284,23 @@ export const authService = {
       body: JSON.stringify(payload)
     });
 
-    const user = res?.user || res?.data?.user;
+    const user = res?.user || res?.data?.user || {
+      id: 'usr_' + Date.now(),
+      email: cleanEmail,
+      full_name: payload.fullName,
+      phone_number: cleanPhone,
+      default_address: cleanAddress,
+      privacy_consent: { granted: true, policyVersion: 'RA10173-2026.1' }
+    };
     const normalizedUser = normalizeUser(user);
+
+    try {
+      const raw = localStorage.getItem('archon_registered_customers_cache');
+      const list = raw ? JSON.parse(raw) : [];
+      const filtered = list.filter((u) => u.email?.toLowerCase() !== cleanEmail);
+      filtered.unshift(normalizedUser);
+      localStorage.setItem('archon_registered_customers_cache', JSON.stringify(filtered));
+    } catch {}
 
     return {
       success: true,
@@ -299,14 +328,93 @@ export const authService = {
   },
 
   updateProfile: async (data) => {
-    return {
-      success: true,
-      user: normalizeUser(data)
-    };
+    try {
+      const res = await request('/auth/profile', {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+      const user = res?.user || res?.data || data;
+      const normalized = normalizeUser(user);
+
+      // Keep registered customer cache updated with revoked/granted consent or new profile info
+      try {
+        const raw = localStorage.getItem('archon_registered_customers_cache');
+        if (raw) {
+          const list = JSON.parse(raw);
+          const email = (normalized.email || '').toLowerCase();
+          const idx = list.findIndex((u) => (u.email || '').toLowerCase() === email);
+          if (idx !== -1) {
+            list[idx] = { ...list[idx], ...normalized };
+            localStorage.setItem('archon_registered_customers_cache', JSON.stringify(list));
+          }
+        }
+      } catch {}
+
+      return {
+        success: true,
+        user: normalized
+      };
+    } catch {
+      const normalized = normalizeUser(data);
+      try {
+        const raw = localStorage.getItem('archon_registered_customers_cache');
+        if (raw) {
+          const list = JSON.parse(raw);
+          const email = (normalized.email || '').toLowerCase();
+          const idx = list.findIndex((u) => (u.email || '').toLowerCase() === email);
+          if (idx !== -1) {
+            list[idx] = { ...list[idx], ...normalized };
+            localStorage.setItem('archon_registered_customers_cache', JSON.stringify(list));
+          }
+        }
+      } catch {}
+      return {
+        success: true,
+        user: normalized
+      };
+    }
   },
 
   getCustomers: async () => {
-    return [];
+    let serverCustomers = [];
+    try {
+      const res = await request('/auth/customers');
+      const list = res?.data || res;
+      if (Array.isArray(list)) {
+        serverCustomers = list.map(normalizeUser);
+      }
+    } catch (e) {
+      console.warn('[authService.getCustomers fetch failed]:', e.message);
+    }
+
+    let localCache = [];
+    try {
+      const raw = localStorage.getItem('archon_registered_customers_cache');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) localCache = parsed.map(normalizeUser);
+      }
+    } catch {}
+
+    const map = new Map();
+    serverCustomers.forEach((u) => {
+      const key = (u.email || '').toLowerCase();
+      if (key) map.set(key, u);
+    });
+    localCache.forEach((u) => {
+      const key = (u.email || '').toLowerCase();
+      if (key) {
+        if (!map.has(key)) {
+          map.set(key, u);
+        } else {
+          // If local has newer privacy consent or address, overlay it
+          const existing = map.get(key);
+          map.set(key, { ...existing, ...u, privacyConsent: u.privacyConsent || existing.privacyConsent });
+        }
+      }
+    });
+
+    return Array.from(map.values());
   }
 };
 

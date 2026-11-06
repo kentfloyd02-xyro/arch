@@ -40,6 +40,10 @@ export function useAdminAuditLogsPageController() {
 
   useEffect(() => {
     fetchAuditLogs();
+    const interval = setInterval(() => {
+      fetchAuditLogs();
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const q = auditSearch.toLowerCase().trim();

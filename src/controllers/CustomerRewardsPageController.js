@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { api } from '../services/api';
 
 export function formatMoney(value) {
   return `PHP ${Number(value || 0).toLocaleString('en-US', {
@@ -10,6 +11,31 @@ export function formatMoney(value) {
 
 export function useCustomerRewardsPageController() {
   const { currentUser, orders, products, addToCart } = useApp();
+  const [coupons, setCoupons] = useState([]);
+
+  useEffect(() => {
+    api.getVouchers()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setCoupons(data.map((v) => {
+            let detail = 'Special discount voucher';
+            if (v.discountType === 'PERCENTAGE' || v.discount_type === 'PERCENTAGE') {
+              detail = `${v.discountValue || v.discount_value}% off eligible orders`;
+            } else if (v.discountType === 'FIXED' || v.discount_type === 'FIXED' || v.discountType === 'FIXED_AMOUNT') {
+              detail = `PHP ${v.discountValue || v.discount_value} off`;
+            } else if (v.discountType === 'FREE_SHIPPING' || v.code === 'FREESHIP') {
+              detail = 'Free shipping freight waiver';
+            }
+            return {
+              code: v.code,
+              detail,
+              minSpend: v.minSpend || v.min_spend
+            };
+          }));
+        }
+      })
+      .catch((err) => console.warn('Coupons fetch:', err.message));
+  }, []);
 
   const storagePrefix = `archon-customer-${currentUser?.id || 'guest'}`;
 
@@ -61,12 +87,6 @@ export function useCustomerRewardsPageController() {
       : rewardPoints >= 500
       ? 'Silver'
       : 'Member';
-
-  const coupons = [
-    { code: 'ARCHON20', detail: '20% off eligible orders' },
-    { code: 'ARCHON500', detail: 'PHP 500 off' },
-    { code: 'FREESHIP', detail: 'Free shipping' }
-  ];
 
   const wishlistProducts = products
     .filter((product) => wishlist.includes(product.id))

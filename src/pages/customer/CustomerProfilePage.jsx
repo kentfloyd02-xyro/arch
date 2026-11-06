@@ -112,17 +112,19 @@ export default function CustomerProfilePage() {
             ['name', 'Full name'],
             ['email', 'Email address'],
             ['phone', 'Phone number'],
-            ['company', 'Company']
+            ['address', 'Address']
           ].map(([key, label]) => (
             <label key={key} className="block text-[10px] font-semibold text-slate-400">
               {label}
               <input
                 required={key === 'name' || key === 'email'}
                 type={key === 'email' ? 'email' : 'text'}
-                value={profileDraft[key]}
-                onChange={(e) =>
-                  setProfileDraft((draft) => ({ ...draft, [key]: e.target.value }))
-                }
+                maxLength={key === 'phone' ? 11 : undefined}
+                value={profileDraft[key] || ''}
+                onChange={(e) => {
+                  const val = key === 'phone' ? e.target.value.replace(/\D/g, '').slice(0, 11) : e.target.value;
+                  setProfileDraft((draft) => ({ ...draft, [key]: val }));
+                }}
                 className={`${inputClass} mt-1`}
               />
             </label>

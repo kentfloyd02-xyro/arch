@@ -57,11 +57,16 @@ export function AppProvider({ children }) {
       // Check health first or fetch alongside
       const healthPromise = checkApiHealth().catch(() => false);
 
-      const [isHealthy, liveProducts, liveOrders] = await Promise.all([
+      const [isHealthy, liveProducts, liveOrders, liveProjects] = await Promise.all([
         healthPromise,
         api.getProducts().catch(() => null),
-        token ? api.getOrders().catch(() => null) : Promise.resolve(null)
+        token ? api.getOrders().catch(() => null) : Promise.resolve(null),
+        api.getProjects().catch(() => [])
       ]);
+
+      if (Array.isArray(liveProjects) && liveProjects.length > 0) {
+        setProjects(liveProjects);
+      }
 
       let formattedProducts = [];
       if (Array.isArray(liveProducts) && liveProducts.length > 0) {
@@ -91,6 +96,12 @@ export function AppProvider({ children }) {
           const rawShipping = Number(o.shippingFee ?? o.shipping_fee ?? 0);
           const rawDiscount = Number(o.discountAmount ?? o.discount_amount ?? o.discount ?? 0);
           const rawStatus = (o.status || o.delivery_status || 'DELIVERED').toUpperCase();
+          let parsedRefundDetails = null;
+          if (o.refund_details) {
+            parsedRefundDetails = typeof o.refund_details === 'string' ? JSON.parse(o.refund_details) : o.refund_details;
+          } else if (o.refundDetails) {
+            parsedRefundDetails = o.refundDetails;
+          }
 
           return {
             ...o,
@@ -105,6 +116,9 @@ export function AppProvider({ children }) {
             gcashRefNumber: o.gcashRefNumber || o.gcash_ref_number || '',
             status: rawStatus,
             deliveryStatus: rawStatus,
+            cancelReason: o.cancel_reason || o.cancelReason || '',
+            cancelledAt: o.cancelled_at || o.cancelledAt || null,
+            refundDetails: parsedRefundDetails,
             totalAmount: rawTotal,
             subtotal: rawSubtotal,
             shippingFee: rawShipping,
@@ -154,10 +168,6 @@ export function AppProvider({ children }) {
       } else {
         setReviews({});
       }
-
-      // Load engineering projects showcase
-      const liveProjects = await api.getProjects().catch(() => []);
-      setProjects(Array.isArray(liveProjects) ? liveProjects : []);
 
       const connected = Boolean(isHealthy || (liveProducts && liveProducts.length >= 0));
       setIsApiConnected(connected);
@@ -442,7 +452,8 @@ export function AppProvider({ children }) {
   const cartSubtotal = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
   const totalItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-  const isBulkyOrder = totalItemCount >= 5 || cartSubtotal >= 15000;
+  // Bulky 10% volume discount strictly activates when order quantity exceeds 5 units (> 5)
+  const isBulkyOrder = totalItemCount > 5;
   const bulkyDiscountAmount = isBulkyOrder ? Math.round(cartSubtotal * 0.10) : 0;
 
   let voucherDiscountAmount = 0;
@@ -692,6 +703,7 @@ export function AppProvider({ children }) {
     setProducts(updatedProducts);
     setOrders(updatedOrders);
     showToast(`Order #${orderNumber} cancelled. Items restored to inventory.`, 'success');
+    refreshAllData().catch(() => {});
     return true;
   };
 
@@ -727,6 +739,7 @@ export function AppProvider({ children }) {
 
     setOrders(updatedOrders);
     showToast(`Refund request submitted for #${orderNumber}. Under review by Archon Nell Engineering QA.`, 'info');
+    refreshAllData().catch(() => {});
     return true;
   };
 
@@ -774,6 +787,7 @@ export function AppProvider({ children }) {
 
     setOrders(updatedOrders);
     showToast(`Refund approved for #${orderNumber}.`, 'success');
+    refreshAllData().catch(() => {});
   };
 
   

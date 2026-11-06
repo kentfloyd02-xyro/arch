@@ -1,15 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 
 export function useCustomerProfilePageController() {
   const { currentUser, updateUserProfile, showToast } = useApp();
 
   const [profileDraft, setProfileDraft] = useState({
-    name: currentUser?.name || '',
+    name: currentUser?.name || currentUser?.full_name || '',
     email: currentUser?.email || '',
-    phone: currentUser?.phone || '',
-    company: currentUser?.company || ''
+    phone: currentUser?.phone || currentUser?.phoneNumber || currentUser?.phone_number || '',
+    address: currentUser?.address || currentUser?.defaultAddress || currentUser?.default_address || ''
   });
+
+  useEffect(() => {
+    if (currentUser) {
+      setProfileDraft({
+        name: currentUser.name || currentUser.full_name || '',
+        email: currentUser.email || '',
+        phone: currentUser.phone || currentUser.phoneNumber || currentUser.phone_number || '',
+        address: currentUser.address || currentUser.defaultAddress || currentUser.default_address || ''
+      });
+    }
+  }, [currentUser]);
 
   const [billingPreference, setBillingPreference] = useState(
     currentUser?.billingPreference || 'standard'
@@ -27,18 +38,33 @@ export function useCustomerProfilePageController() {
 
   const [addresses, setAddresses] = useState(() => {
     const list = readLocal('addresses', []);
-    const userAddr = currentUser?.address || currentUser?.defaultAddress;
+    const userAddr = currentUser?.address || currentUser?.defaultAddress || currentUser?.default_address;
     if (list.length === 0 && userAddr && userAddr.trim()) {
       return [{ id: 'primary', label: 'Primary Delivery Address', address: userAddr.trim() }];
     }
     return list;
   });
-  const [addressDraft, setAddressDraft] = useState({ label: '', address: '' });
 
   const saveAddresses = (next) => {
     setAddresses(next);
     localStorage.setItem(`${storagePrefix}-addresses`, JSON.stringify(next));
   };
+
+  useEffect(() => {
+    const userAddr = currentUser?.address || currentUser?.defaultAddress || currentUser?.default_address;
+    if (userAddr && userAddr.trim()) {
+      setAddresses((prev) => {
+        if (!prev.some((item) => item.address?.trim() === userAddr.trim())) {
+          const next = [{ id: 'primary', label: 'Primary Delivery Address', address: userAddr.trim() }, ...prev];
+          saveAddresses(next);
+          return next;
+        }
+        return prev;
+      });
+    }
+  }, [currentUser]);
+
+  const [addressDraft, setAddressDraft] = useState({ label: '', address: '' });
 
   const submitAddress = (e) => {
     if (e?.preventDefault) e.preventDefault();
@@ -69,6 +95,8 @@ export function useCustomerProfilePageController() {
 
     const trimmedName = (profileDraft.name || '').trim();
     const trimmedEmail = (profileDraft.email || '').trim().toLowerCase();
+    const cleanPhone = (profileDraft.phone || '').replace(/\D/g, '').slice(0, 11);
+    const cleanAddress = (profileDraft.address || '').trim();
 
     if (trimmedName.length < 2) {
       showToast('Validation Error: Full name must be at least 2 characters.', 'warning');
@@ -87,7 +115,17 @@ export function useCustomerProfilePageController() {
         ? [...new Set([...(currentUser.previousEmails || []), currentUser.email])]
         : currentUser?.previousEmails || [];
 
-    updateUserProfile({ ...profileDraft, name: trimmedName, email: trimmedEmail, billingPreference, previousEmails });
+    updateUserProfile({
+      name: trimmedName,
+      fullName: trimmedName,
+      email: trimmedEmail,
+      phone: cleanPhone,
+      phoneNumber: cleanPhone,
+      address: cleanAddress,
+      defaultAddress: cleanAddress,
+      billingPreference,
+      previousEmails
+    });
     showToast('Profile information validated and updated successfully.', 'success');
   };
 
@@ -97,12 +135,14 @@ export function useCustomerProfilePageController() {
 
   const togglePrivacyConsent = async () => {
     const nextState = !consentGranted;
+    const consentObj = {
+      granted: nextState,
+      consentedAt: new Date().toISOString(),
+      policyVersion: 'RA10173-2026.1'
+    };
+
     await updateUserProfile({
-      privacyConsent: {
-        granted: nextState,
-        consentedAt: new Date().toISOString(),
-        policyVersion: 'RA10173-2026.1'
-      }
+      privacyConsent: consentObj
     });
 
     if (nextState) {

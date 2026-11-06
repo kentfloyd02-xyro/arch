@@ -317,8 +317,7 @@ export default function AdminDashboardPage({ onNavigateTab }) {
             ))}
           </div>
           <p className="mt-2 text-[9px] text-slate-500">
-            Traffic sources, campaign performance, loyalty, and abandoned-cart logs are
-            not collected in this demo.
+            Active promotional vouchers currently configured in PostgreSQL centralized store database.
           </p>
           <button
             type="button"

@@ -34,9 +34,9 @@ export default function Footer() {
           <div>
             <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-4">Payment Modes Accepted</h4>
             <ul className="space-y-2 text-xs">
-              <li><span className="text-slate-300">Cash on Delivery (UI Preview)</span></li>
-              <li><span className="text-slate-300">Maya (UI Preview)</span></li>
-              <li><span className="text-slate-300">GCash (UI Preview)</span></li>
+              <li><span className="text-slate-300">Cash on Delivery</span></li>
+              <li><span className="text-slate-300">Maya</span></li>
+              <li><span className="text-slate-300">GCash</span></li>
             </ul>
           </div>
 
@@ -66,7 +66,7 @@ export default function Footer() {
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1 text-slate-400">
               <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-              Frontend Demo Store
+              Hardware Store
             </span>
             <span className="text-slate-600">|</span>
             <span>Refractory & Construction Chemical Solutions</span>

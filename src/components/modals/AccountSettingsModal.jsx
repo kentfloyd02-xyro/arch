@@ -4,7 +4,6 @@ import {
   X, 
   Settings, 
   User, 
-  Building, 
   Mail, 
   Phone, 
   MapPin, 
@@ -24,7 +23,6 @@ export default function AccountSettingsModal() {
 
   const [formData, setFormData] = useState({
     name: '',
-    company: '',
     email: '',
     phone: '',
     address: '',
@@ -35,10 +33,9 @@ export default function AccountSettingsModal() {
   useEffect(() => {
     if (currentUser) {
       setFormData({
-        name: currentUser.name || '',
-        company: currentUser.company || '',
+        name: currentUser.name || currentUser.full_name || '',
         email: currentUser.email || '',
-        phone: currentUser.phone || '',
+        phone: currentUser.phone || currentUser.phoneNumber || currentUser.phone_number || '',
         address: currentUser.address || currentUser.defaultAddress || currentUser.default_address || '',
         smsAlerts: true,
         emailReceipts: true
@@ -59,12 +56,16 @@ export default function AccountSettingsModal() {
       return;
     }
 
+    const cleanPhone = formData.phone.replace(/\D/g, '').slice(0, 11);
     updateUserProfile({
       name: formData.name.trim(),
-      company: formData.company.trim(),
-      email: formData.email.trim(),
-      phone: formData.phone.trim(),
-      address: formData.address.trim()
+      email: formData.email.trim().toLowerCase(),
+      phone: cleanPhone,
+      phoneNumber: cleanPhone,
+      address: formData.address.trim(),
+      defaultAddress: formData.address.trim(),
+      smsAlerts: formData.smsAlerts,
+      emailReceipts: formData.emailReceipts
     });
 
     setIsSettingsOpen(false);
@@ -125,20 +126,6 @@ export default function AccountSettingsModal() {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-900"
               required
-            />
-          </div>
-
-          {/* Company */}
-          <div className="space-y-1">
-            <label className="font-bold text-slate-700 flex items-center gap-1.5">
-              <Building className="w-3.5 h-3.5 text-slate-400" />
-              <span>Company / Contractor Organization</span>
-            </label>
-            <input
-              type="text"
-              value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 text-slate-900"
             />
           </div>
 

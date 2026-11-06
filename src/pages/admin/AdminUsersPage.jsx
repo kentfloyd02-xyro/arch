@@ -90,7 +90,7 @@ export default function AdminUsersPage() {
           <table className="w-full border-collapse text-left text-xs">
             <thead>
               <tr className="border-b border-[#142958] bg-[#0b1b3d]/50">
-                <th className="p-3 text-[10px] uppercase tracking-wider text-slate-400">Customer &amp; Company</th>
+                <th className="p-3 text-[10px] uppercase tracking-wider text-slate-400">Customer Account</th>
                 <th className="p-3 text-[10px] uppercase tracking-wider text-slate-400">Personal Contact</th>
                 <th className="p-3 text-[10px] uppercase tracking-wider text-slate-400">Site / Delivery Address</th>
                 <th className="p-3 text-[10px] uppercase tracking-wider text-slate-400 text-center">RA 10173 Consent</th>
@@ -104,7 +104,7 @@ export default function AdminUsersPage() {
                 <tr key={customer.customerEmail || customer.customerPhone} className="hover:bg-[#0b1b3d]/60 transition-colors">
                   <td className="p-3 text-white">
                     <strong className="block text-slate-100">{customer.customerName}</strong>
-                    <span className="text-[10px] text-slate-400">{customer.company}</span>
+                    <span className="text-[10px] text-slate-400">{customer.isRegistered ? 'Registered Customer' : 'Order Client'}</span>
                   </td>
                   <td className="p-3 text-slate-300">
                     {customer.isConsented ? (

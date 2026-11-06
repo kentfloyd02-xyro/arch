@@ -1,12 +1,27 @@
+import { useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 
 export function useAdminRefundsPageController() {
-  const { orders, approveRefund } = useApp();
+  const { orders, approveRefund, refreshAllData } = useApp();
+
+  useEffect(() => {
+    if (refreshAllData) {
+      refreshAllData().catch(() => {});
+      const interval = setInterval(() => {
+        refreshAllData().catch(() => {});
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [refreshAllData]);
 
   const refundOrders = orders
-    .filter((o) => o.status === 'REFUND_REQUESTED' || o.status === 'REFUNDED')
+    .filter((o) => {
+      const s = String(o.status || o.deliveryStatus || '').toUpperCase();
+      return s === 'REFUND_REQUESTED' || s === 'REFUNDED';
+    })
     .map((order) => {
-      const isApproved = order.status === 'REFUNDED';
+      const s = String(order.status || order.deliveryStatus || '').toUpperCase();
+      const isApproved = s === 'REFUNDED';
       const statusBadgeClass = isApproved
         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
         : 'bg-purple-500/20 text-purple-300 border-purple-500/30';

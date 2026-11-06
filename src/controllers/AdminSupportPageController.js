@@ -8,7 +8,7 @@ export function useAdminSupportPageController() {
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportReplies, setSupportReplies] = useState({});
   const [selectedSupportInquiry, setSelectedSupportInquiry] = useState(null);
-  const [supportStatusFilter, setSupportStatusFilter] = useState('open');
+  const [supportStatusFilter, setSupportStatusFilter] = useState('all');
   const [supportDetailLoading, setSupportDetailLoading] = useState(false);
   const selectedInquiryRef = useRef(null);
 
@@ -27,19 +27,45 @@ export function useAdminSupportPageController() {
     } catch {}
 
     const map = new Map();
-    // Server tickets take priority
-    (Array.isArray(serverTickets) ? serverTickets : []).forEach((t) => {
+    // Load local tickets first
+    localTickets.forEach((t) => {
       const key = t.ticketNumber || t._id || t.id;
       if (key) map.set(key, t);
     });
-    // Add local-only tickets
-    localTickets.forEach((t) => {
-      const key = t.ticketNumber || t._id || t.id;
-      if (key && !map.has(key)) map.set(key, t);
+
+    // Merge server tickets with local tickets
+    (Array.isArray(serverTickets) ? serverTickets : []).forEach((st) => {
+      const key = st.ticketNumber || st._id || st.id;
+      if (key) {
+        const existing = map.get(key);
+        if (existing) {
+          const existingMsgs = Array.isArray(existing.messages) ? existing.messages : [];
+          const serverMsgs = Array.isArray(st.messages) ? st.messages : [];
+          const msgMap = new Map();
+          existingMsgs.forEach((m) => {
+            const mKey = m._id || m.id || `${m.sender}-${m.text}-${m.createdAt}`;
+            msgMap.set(mKey, m);
+          });
+          serverMsgs.forEach((m) => {
+            const mKey = m._id || m.id || `${m.sender}-${m.text}-${m.createdAt}`;
+            msgMap.set(mKey, m);
+          });
+          const mergedMessages = Array.from(msgMap.values());
+          mergedMessages.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+
+          map.set(key, {
+            ...existing,
+            ...st,
+            messages: mergedMessages
+          });
+        } else {
+          map.set(key, st);
+        }
+      }
     });
 
     const combined = Array.from(map.values());
-    combined.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    combined.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
     return combined;
   };
 

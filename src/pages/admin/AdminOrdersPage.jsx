@@ -101,8 +101,13 @@ export default function AdminOrdersPage() {
                     Contractor / Client:
                   </span>
                   <span className="text-white font-semibold">{order.customerName}</span>
-                  <span className="text-slate-400 text-[11px] block">
-                    {order.customerEmail} · {order.customerPhone}
+                  <span className="text-slate-400 text-[11px] block font-mono">
+                    {order.displayCustomerEmail} · {order.displayCustomerPhone}
+                    {order.isWithheld && (
+                      <span className="ml-1.5 inline-block px-1.5 py-0.2 rounded bg-rose-500/10 border border-rose-500/20 text-[9px] text-rose-300 font-sans">
+                        Protected RA 10173
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div>
@@ -110,7 +115,7 @@ export default function AdminOrdersPage() {
                     Delivery Address:
                   </span>
                   <span className="text-slate-300 text-[11px] line-clamp-2">
-                    {order.deliveryAddress || 'No address specified'}
+                    {order.displayDeliveryAddress}
                   </span>
                 </div>
               </div>

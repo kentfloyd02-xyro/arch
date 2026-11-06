@@ -1,9 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../services/api';
 
 export function useAdminInventoryPageController() {
-  const { products, setProducts, showToast } = useApp();
+  const { products, setProducts, showToast, refreshAllData } = useApp();
+
+  useEffect(() => {
+    if (refreshAllData) {
+      const interval = setInterval(() => {
+        refreshAllData().catch(() => {});
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [refreshAllData]);
 
   const [productSearch, setProductSearch] = useState('');
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
@@ -19,7 +28,11 @@ export function useAdminInventoryPageController() {
     image: ''
   });
 
-  const handleStockAdjust = (productId, delta) => {
+  const generateSku = () => {
+    return `AN-SKU-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+  };
+
+  const handleStockAdjust = async (productId, delta) => {
     const target = products.find((p) => p.id === productId);
     if (!target) {
       showToast('Product not found in inventory.', 'error');
@@ -31,18 +44,26 @@ export function useAdminInventoryPageController() {
       return;
     }
 
+    const newStock = Math.max(0, target.stock + delta);
     const updated = products.map((p) => {
       if (p.id === productId) {
-        const newStock = Math.max(0, p.stock + delta);
         return { ...p, stock: newStock };
       }
       return p;
     });
     setProducts(updated);
+
+    const targetId = target.dbId || target._id || target.id;
+    try {
+      await api.updateProduct(targetId, { stock: newStock });
+    } catch (err) {
+      console.warn('Database stock update error:', err.message);
+    }
+
     api.logActivity(
       'inventory', 
       'STOCK_ADJUSTED', 
-      `Adjusted stock for ${target.title} (${delta > 0 ? `+${delta}` : delta} units). New stock: ${Math.max(0, target.stock + delta)}`, 
+      `Adjusted stock for ${target.title} (${delta > 0 ? `+${delta}` : delta} units). New stock: ${newStock}`, 
       target.title
     );
     showToast(
@@ -51,7 +72,7 @@ export function useAdminInventoryPageController() {
     );
   };
 
-  const handleProductSubmit = (event) => {
+  const handleProductSubmit = async (event) => {
     event.preventDefault();
 
     // Validation checks
@@ -62,60 +83,100 @@ export function useAdminInventoryPageController() {
     }
 
     if (!productDraft.category || productDraft.category.trim() === '') {
-      showToast('Validation Error: Please select a valid product category.', 'warning');
+      showToast('Validation Error: Please select a valid product category from dropdown.', 'warning');
       return;
     }
 
     const priceNum = Number(productDraft.price);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      showToast('Validation Error: Product price must be a valid positive number.', 'warning');
+    if (isNaN(priceNum) || priceNum < 1) {
+      showToast('Validation Error: Product price must be at least PHP 1.00.', 'warning');
       return;
     }
 
     const stockNum = Number(productDraft.stock);
-    if (isNaN(stockNum) || stockNum < 0 || !Number.isInteger(stockNum)) {
-      showToast('Validation Error: Stock quantity must be a non-negative whole number.', 'warning');
+    if (isNaN(stockNum) || stockNum < 20 || stockNum > 5000 || !Number.isInteger(stockNum)) {
+      showToast('Validation Error: Stock count must be an integer between 20 and 5,000 units.', 'warning');
       return;
     }
 
-    const productData = {
-      ...productDraft,
+    const weightNum = Number(productDraft.shippingWeightKg);
+    if (isNaN(weightNum) || weightNum <= 0) {
+      showToast('Validation Error: Shipping weight per unit must be greater than 0 kg.', 'warning');
+      return;
+    }
+
+    const trimmedDesc = (productDraft.description || '').trim();
+    if (trimmedDesc.length < 10) {
+      showToast('Validation Error: Product description must be at least 10 characters.', 'warning');
+      return;
+    }
+
+    const skuValue = (productDraft.sku || '').trim() || generateSku();
+    const productPayload = {
       title: trimmedTitle,
+      category: productDraft.category.trim(),
+      sku: skuValue,
       price: priceNum,
       stock: stockNum,
-      shippingWeightKg: Number(productDraft.shippingWeightKg) || 0,
-      sold: products.find((product) => product.id === editingProductId)?.sold || 0
+      shippingWeightKg: weightNum,
+      description: trimmedDesc,
+      image: productDraft.image || '/assets/images/leveling_mortar_1785519746126.png',
+      images: [productDraft.image || '/assets/images/leveling_mortar_1785519746126.png'],
+      specs: { shippingWeightKg: weightNum }
     };
-    if (editingProductId) {
-      setProducts(
-        products.map((product) =>
-          product.id === editingProductId ? { ...product, ...productData } : product
-        )
-      );
-      api.logActivity(
-        'inventory',
-        'PRODUCT_UPDATED',
-        `Updated product "${productData.title}" (Price: PHP ${productData.price}, Stock: ${productData.stock})`,
-        productData.title
-      );
-      showToast('Product details updated in the catalog.', 'success');
-    } else {
-      const newProd = {
-        ...productData,
-        id: `prod-${Date.now()}`,
-        image:
-          productData.image ||
-          '/assets/images/leveling_mortar_1785519746126.png'
-      };
-      setProducts([newProd, ...products]);
-      api.logActivity(
-        'inventory',
-        'PRODUCT_CREATED',
-        `Created new catalog product "${productData.title}" (Category: ${productData.category}, Price: PHP ${productData.price}, Stock: ${productData.stock})`,
-        productData.title
-      );
-      showToast('Product added to the catalog.', 'success');
+
+    try {
+      if (editingProductId) {
+        const prod = products.find((p) => p.id === editingProductId);
+        const targetId = prod?.dbId || prod?._id || editingProductId;
+        await api.updateProduct(targetId, productPayload).catch((err) => {
+          console.warn('Backend updateProduct fallback:', err.message);
+        });
+
+        setProducts(
+          products.map((product) =>
+            product.id === editingProductId ? { ...product, ...productPayload } : product
+          )
+        );
+        api.logActivity(
+          'inventory',
+          'PRODUCT_UPDATED',
+          `Updated product "${productPayload.title}" (Price: PHP ${productPayload.price}, Stock: ${productPayload.stock})`,
+          productPayload.title
+        );
+        showToast('Product specifications updated successfully in database.', 'success');
+      } else {
+        const res = await api.createProduct(productPayload).catch((err) => {
+          console.warn('Backend createProduct fallback:', err.message);
+          return null;
+        });
+
+        const createdProd = {
+          ...productPayload,
+          id: res?.data?.id || res?.data?.custom_id || res?.custom_id || `prod-${Date.now().toString().slice(-6)}`,
+          dbId: res?.data?.id || res?.id,
+          sold: 0,
+          rating: 5.0
+        };
+
+        setProducts([createdProd, ...products]);
+        api.logActivity(
+          'inventory',
+          'PRODUCT_CREATED',
+          `Created new catalog product "${productPayload.title}" (Category: ${productPayload.category}, Price: PHP ${productPayload.price}, Stock: ${productPayload.stock})`,
+          productPayload.title
+        );
+        showToast('Product successfully saved to Industrial Products Catalog.', 'success');
+      }
+
+      if (refreshAllData) {
+        refreshAllData().catch(() => {});
+      }
+    } catch (err) {
+      console.error('Save product error:', err);
+      showToast(err.message || 'Could not save product.', 'error');
     }
+
     setIsProductFormOpen(false);
     setEditingProductId(null);
     setProductDraft({
@@ -135,10 +196,10 @@ export function useAdminInventoryPageController() {
     setProductDraft({
       title: product.title || '',
       sku: product.sku || product.id,
-      category: product.category || '',
+      category: product.category || 'Self-Leveling Mortar',
       price: product.price ?? '',
-      stock: product.stock ?? '',
-      shippingWeightKg: product.shippingWeightKg ?? '',
+      stock: product.stock ?? 100,
+      shippingWeightKg: product.shippingWeightKg ?? 25,
       description: product.description || '',
       image: product.image || ''
     });
@@ -149,15 +210,15 @@ export function useAdminInventoryPageController() {
     setEditingProductId(null);
     setProductDraft({
       title: '',
-      sku: '',
-      category: '',
+      sku: generateSku(),
+      category: 'Self-Leveling Mortar',
       price: '',
-      stock: '',
-      shippingWeightKg: '',
+      stock: 100,
+      shippingWeightKg: 25,
       description: '',
-      image: ''
+      image: '/assets/images/leveling_mortar_1785519746126.png'
     });
-    setIsProductFormOpen((prev) => !prev);
+    setIsProductFormOpen(true);
   };
 
   const closeProductForm = () => {

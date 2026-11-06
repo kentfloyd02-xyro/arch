@@ -35,18 +35,24 @@ export function useAdminUsersPageController() {
   const [userSearch, setUserSearch] = useState('');
   const [userConsentFilter, setUserConsentFilter] = useState('all');
 
-  const fetchRegisteredUsers = () => {
-    setUsersLoading(true);
+  const fetchRegisteredUsers = (isBackground = false) => {
+    if (!isBackground) setUsersLoading(true);
     api.getCustomers()
       .then((data) => {
         if (Array.isArray(data)) setRegisteredUsers(data);
       })
       .catch((err) => console.warn('Registered customers fetch:', err.message))
-      .finally(() => setUsersLoading(false));
+      .finally(() => {
+        if (!isBackground) setUsersLoading(false);
+      });
   };
 
   useEffect(() => {
     fetchRegisteredUsers();
+    const interval = setInterval(() => {
+      fetchRegisteredUsers(true);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Aggregation of registered users and order guest customers
@@ -56,13 +62,13 @@ export function useAdminUsersPageController() {
     const email = u.email ? u.email.toLowerCase().trim() : '';
     if (email) {
       allCustomersMap.set(email, {
-        customerName: u.name,
+        customerName: u.name || u.fullName || 'Customer',
         customerEmail: u.email,
-        customerPhone: u.phone || '',
-        company: u.company || 'Contractor Partner',
+        customerPhone: u.phone || u.phoneNumber || '',
+        company: u.company || '',
         registeredDate: u.createdAt,
         isRegistered: true,
-        defaultAddress: u.defaultAddress || '',
+        defaultAddress: u.defaultAddress || u.address || '',
         privacyConsent: u.privacyConsent || {
           granted: true,
           consentedAt: u.createdAt,
@@ -72,26 +78,95 @@ export function useAdminUsersPageController() {
     }
   });
 
+  // Supplement with local registered customers cache
+  try {
+    const rawCache = localStorage.getItem('archon_registered_customers_cache');
+    if (rawCache) {
+      const cache = JSON.parse(rawCache);
+      if (Array.isArray(cache)) {
+        cache.forEach((u) => {
+          const email = (u.email || '').toLowerCase().trim();
+          if (email) {
+            const existing = allCustomersMap.get(email);
+            if (!existing) {
+              allCustomersMap.set(email, {
+                customerName: u.name || u.fullName || 'Customer',
+                customerEmail: u.email,
+                customerPhone: u.phone || u.phoneNumber || '',
+                company: u.company || '',
+                registeredDate: u.createdAt,
+                isRegistered: true,
+                defaultAddress: u.defaultAddress || u.address || '',
+                privacyConsent: u.privacyConsent || { granted: true, policyVersion: 'RA10173-2026.1' }
+              });
+            } else {
+              if (u.privacyConsent) existing.privacyConsent = u.privacyConsent;
+              if (u.defaultAddress || u.address) existing.defaultAddress = u.defaultAddress || u.address;
+              if (u.phone || u.phoneNumber) existing.customerPhone = u.phone || u.phoneNumber;
+            }
+          }
+        });
+      }
+    }
+  } catch {}
+
+  // Supplement with current user in localStorage if present
+  try {
+    const rawUser = localStorage.getItem('archon_user');
+    if (rawUser) {
+      const cur = JSON.parse(rawUser);
+      const email = (cur.email || '').toLowerCase().trim();
+      if (email) {
+        const existing = allCustomersMap.get(email);
+        if (existing) {
+          if (cur.privacyConsent) existing.privacyConsent = cur.privacyConsent;
+          if (cur.address || cur.defaultAddress) existing.defaultAddress = cur.address || cur.defaultAddress;
+          if (cur.phone || cur.phoneNumber) existing.customerPhone = cur.phone || cur.phoneNumber;
+        } else if (cur.role !== 'admin' && cur.global_role !== 'superadmin' && cur.global_role !== 'admin') {
+          allCustomersMap.set(email, {
+            customerName: cur.name || cur.full_name || 'Customer',
+            customerEmail: cur.email,
+            customerPhone: cur.phone || cur.phoneNumber || '',
+            company: cur.company || '',
+            registeredDate: cur.created_at || new Date().toISOString(),
+            isRegistered: true,
+            defaultAddress: cur.address || cur.defaultAddress || '',
+            privacyConsent: cur.privacyConsent || { granted: true, policyVersion: 'RA10173-2026.1' }
+          });
+        }
+      }
+    }
+  } catch {}
+
   orders.forEach((o) => {
     const email = o.customerEmail
       ? o.customerEmail.toLowerCase().trim()
       : o.customerPhone || '';
     if (email) {
-      const existing = allCustomersMap.get(email) || {
-        customerName: o.customerName,
-        customerEmail: o.customerEmail,
-        customerPhone: o.customerPhone,
-        company: 'Engineering Client',
-        registeredDate: o.createdAt,
-        isRegistered: false,
-        defaultAddress: o.deliveryAddress,
-        privacyConsent: {
-          granted: true,
-          consentedAt: o.createdAt,
-          policyVersion: 'RA10173-2026.1'
+      const existing = allCustomersMap.get(email);
+      if (existing) {
+        if (!existing.customerPhone && o.customerPhone && existing.privacyConsent?.granted !== false) {
+          existing.customerPhone = o.customerPhone;
         }
-      };
-      allCustomersMap.set(email, existing);
+        if (!existing.defaultAddress && o.deliveryAddress && existing.privacyConsent?.granted !== false) {
+          existing.defaultAddress = o.deliveryAddress;
+        }
+      } else {
+        allCustomersMap.set(email, {
+          customerName: o.customerName || 'Customer',
+          customerEmail: o.customerEmail,
+          customerPhone: o.customerPhone,
+          company: '',
+          registeredDate: o.createdAt,
+          isRegistered: false,
+          defaultAddress: o.deliveryAddress,
+          privacyConsent: {
+            granted: true,
+            consentedAt: o.createdAt,
+            policyVersion: 'RA10173-2026.1'
+          }
+        });
+      }
     }
   });
 

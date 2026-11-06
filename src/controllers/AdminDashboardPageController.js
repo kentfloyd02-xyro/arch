@@ -1,8 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { api } from '../services/api';
 
 export function useAdminDashboardPageController() {
-  const { orders, products } = useApp();
+  const { orders, products, refreshAllData } = useApp();
+
+  useEffect(() => {
+    if (refreshAllData) {
+      refreshAllData().catch(() => {});
+      const interval = setInterval(() => {
+        refreshAllData().catch(() => {});
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [refreshAllData]);
 
   const [showPrices, setShowPrices] = useState(() => {
     try {
@@ -195,7 +206,17 @@ export function useAdminDashboardPageController() {
   });
   const customersCount = customerEmailSet.size;
 
-  const promoCodes = ['ARCHON20', 'ARCHON500', 'FREESHIP'];
+  const [promoCodes, setPromoCodes] = useState([]);
+
+  useEffect(() => {
+    api.getVouchers()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setPromoCodes(data.map((v) => v.code));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return {
     showPrices,

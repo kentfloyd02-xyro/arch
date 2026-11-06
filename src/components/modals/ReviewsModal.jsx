@@ -39,9 +39,9 @@ export default function ReviewsModal() {
   const prodReviews = reviews[prodId] || [];
   const aiReport = analyzeReviewsWithAI(prodId);
 
-  const handleAnalyzeWithGemini = async () => {
+  const handleGenerateReviewSummary = async () => {
     if (!prodReviews.length) {
-      setGeminiError('Please add at least one review before analyzing with Gemini AI.');
+      setGeminiError('Please add at least one review before generating summary.');
       return;
     }
     setIsAnalyzing(true);
@@ -56,7 +56,7 @@ export default function ReviewsModal() {
       const res = await api.analyzeReviews(payload, prodId, selectedProductForReview.title);
       setGeminiAnalysis(res);
     } catch (err) {
-      setGeminiError(err.message || 'Failed to connect to Google Gemini AI service.');
+      setGeminiError(err.message || 'Unable to retrieve review summary at this time.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -127,7 +127,7 @@ export default function ReviewsModal() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-xs font-black uppercase tracking-wider text-blue-100">
-                      Gemini AI Review Analysis
+                      Product Review Summary & Insights
                     </h4>
                     {geminiAnalysis?.model && (
                       <span className="bg-blue-500/30 text-blue-200 border border-blue-400/30 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full">
@@ -136,7 +136,7 @@ export default function ReviewsModal() {
                     )}
                   </div>
                   <div className="text-[10px] text-slate-300">
-                    Grounded sentiment & engineering analysis powered by Google Gemini AI
+                    Verified contractor reviews and engineering performance summary
                   </div>
                 </div>
               </div>
@@ -148,10 +148,10 @@ export default function ReviewsModal() {
                 </div>
                 <button
                   type="button"
-                  onClick={handleAnalyzeWithGemini}
+                  onClick={handleGenerateReviewSummary}
                   disabled={isAnalyzing || prodReviews.length === 0}
                   className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[11px] font-bold rounded-xl shadow border border-blue-400/40 flex items-center gap-1.5 transition-all"
-                  title="Run Google Gemini AI analysis on customer reviews"
+                  title="Generate review summary from customer evaluations"
                 >
                   {isAnalyzing ? (
                     <>
@@ -161,7 +161,7 @@ export default function ReviewsModal() {
                   ) : (
                     <>
                       <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      <span>{geminiAnalysis ? 'Re-Analyze AI' : '✨ Analyze with Gemini AI'}</span>
+                      <span>{geminiAnalysis ? 'Regenerate Summary' : '✨ Analyze with Gemini AI'}</span>
                     </>
                   )}
                 </button>
@@ -181,7 +181,7 @@ export default function ReviewsModal() {
             ) : isAnalyzing ? (
               <div className="p-4 bg-black/20 rounded-xl border border-white/5 flex items-center justify-center gap-2 text-xs text-blue-200">
                 <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-                <span>Google Gemini is evaluating review feedback and quality factors...</span>
+                <span>Synthesizing contractor evaluations and project durability insights...</span>
               </div>
             ) : (
               <p className="text-xs text-slate-200 leading-relaxed bg-black/20 p-3 rounded-xl border border-white/5">
