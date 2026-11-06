@@ -19,6 +19,8 @@ export function useAdminInventoryPageController() {
     image: ''
   });
 
+  const [inventoryTab, setInventoryTab] = useState('active'); // 'active' | 'archived' | 'trash' | 'all'
+
   const generateSku = () => {
     return `AN-SKU-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
   };
@@ -109,7 +111,75 @@ export function useAdminInventoryPageController() {
     if (!target) return;
 
     const confirmed = window.confirm(
-      `Are you sure you want to permanently delete "${target.title}"? This action cannot be undone.`
+      `Move "${target.title}" to Trash? You can restore it later from the Trash / Deleted tab.`
+    );
+    if (!confirmed) return;
+
+    const targetId = target.dbId || target._id || target.id;
+    const nowIso = new Date().toISOString();
+
+    const updated = products.map((p) =>
+      p.id === productId ? { ...p, isDeleted: true, isActive: false, deletedAt: nowIso } : p
+    );
+    setProducts(updated);
+
+    try {
+      await api.deleteProduct(targetId, false);
+      api.logActivity(
+        'inventory',
+        'PRODUCT_DELETED',
+        `Product "${target.title}" moved to Trash.`,
+        target.title
+      );
+      showToast(`Product "${target.title}" moved to Trash.`, 'info');
+      try {
+        localStorage.setItem('archon_last_sync', Date.now().toString());
+        window.dispatchEvent(new Event('archon_sync'));
+      } catch {}
+    } catch (err) {
+      console.warn('Delete product error:', err.message);
+      showToast('Could not move product to trash in database.', 'error');
+    }
+  };
+
+  const handleRestoreProduct = async (productId) => {
+    const target = products.find((p) => p.id === productId);
+    if (!target) return;
+
+    const targetId = target.dbId || target._id || target.id;
+
+    const updated = products.map((p) =>
+      p.id === productId ? { ...p, isDeleted: false, isActive: true, deletedAt: null } : p
+    );
+    setProducts(updated);
+
+    try {
+      if (api.restoreProduct) {
+        await api.restoreProduct(targetId);
+      }
+      api.logActivity(
+        'inventory',
+        'PRODUCT_RESTORED',
+        `Product "${target.title}" restored from trash to active catalog.`,
+        target.title
+      );
+      showToast(`Product "${target.title}" restored to active catalog.`, 'success');
+      try {
+        localStorage.setItem('archon_last_sync', Date.now().toString());
+        window.dispatchEvent(new Event('archon_sync'));
+      } catch {}
+    } catch (err) {
+      console.warn('Restore product error:', err.message);
+      showToast('Could not restore product in database.', 'error');
+    }
+  };
+
+  const handlePermanentDeleteProduct = async (productId) => {
+    const target = products.find((p) => p.id === productId);
+    if (!target) return;
+
+    const confirmed = window.confirm(
+      `DANGER: Permanently delete "${target.title}" from the database? This action CANNOT be undone.`
     );
     if (!confirmed) return;
 
@@ -117,21 +187,21 @@ export function useAdminInventoryPageController() {
     setProducts(products.filter((p) => p.id !== productId));
 
     try {
-      await api.deleteProduct(targetId);
+      await api.deleteProduct(targetId, true);
       api.logActivity(
         'inventory',
-        'PRODUCT_DELETED',
-        `Product "${target.title}" permanently deleted from catalog.`,
+        'PRODUCT_PERMANENTLY_DELETED',
+        `Product "${target.title}" permanently erased from database.`,
         target.title
       );
-      showToast(`Product "${target.title}" has been deleted.`, 'info');
+      showToast(`Product "${target.title}" permanently deleted.`, 'info');
       try {
         localStorage.setItem('archon_last_sync', Date.now().toString());
         window.dispatchEvent(new Event('archon_sync'));
       } catch {}
     } catch (err) {
-      console.warn('Delete product error:', err.message);
-      showToast('Could not delete product from database.', 'error');
+      console.warn('Permanent delete error:', err.message);
+      showToast('Could not delete product permanently from database.', 'error');
     }
   };
 
@@ -299,13 +369,23 @@ export function useAdminInventoryPageController() {
   };
 
   // Condition checks & precomputed items for inventory
+  const activeCount = products.filter((p) => p.isActive !== false && !p.isDeleted).length;
+  const archivedCount = products.filter((p) => p.isActive === false && !p.isDeleted).length;
+  const trashCount = products.filter((p) => p.isDeleted).length;
+  const allCount = products.length;
+
   const q = productSearch.toLowerCase().trim();
   const filteredProducts = products
     .filter((p) => {
+      if (inventoryTab === 'active' && (p.isActive === false || p.isDeleted)) return false;
+      if (inventoryTab === 'archived' && (p.isActive !== false || p.isDeleted)) return false;
+      if (inventoryTab === 'trash' && !p.isDeleted) return false;
+
       return (
         !q ||
         p.title.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
+        p.category.toLowerCase().includes(q) ||
+        (p.sku && p.sku.toLowerCase().includes(q))
       );
     })
     .map((product) => {
@@ -338,6 +418,12 @@ export function useAdminInventoryPageController() {
   return {
     productSearch,
     setProductSearch,
+    inventoryTab,
+    setInventoryTab,
+    activeCount,
+    archivedCount,
+    trashCount,
+    allCount,
     isProductFormOpen,
     editingProductId,
     productDraft,
@@ -350,6 +436,8 @@ export function useAdminInventoryPageController() {
     handleStockAdjust,
     handleArchiveProduct,
     handleDeleteProduct,
+    handleRestoreProduct,
+    handlePermanentDeleteProduct,
     filteredProducts
   };
 }

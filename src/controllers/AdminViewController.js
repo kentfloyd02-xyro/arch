@@ -58,7 +58,7 @@ export function useAdminViewController() {
 
   const navigation = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'inventory', label: 'Product & Inventory', icon: Package, count: products.length },
+    { id: 'inventory', label: 'Product & Inventory', icon: Package, count: products.filter(p => !p.isDeleted).length },
     { id: 'orders', label: 'Orders', icon: FileText, count: orders.length },
     { id: 'shipments', label: 'Delivery Status', icon: Truck, count: orders.length },
     { id: 'refunds', label: 'Returns & Refunds', icon: RotateCcw, count: refundOrdersCount },

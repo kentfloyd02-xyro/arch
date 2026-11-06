@@ -59,7 +59,7 @@ export function AppProvider({ children }) {
 
       const [isHealthy, liveProducts, liveOrders] = await Promise.all([
         healthPromise,
-        api.getProducts().catch(() => null),
+        api.getProducts({ include_inactive: 'true', include_deleted: 'true' }).catch(() => null),
         token ? api.getOrders().catch(() => null) : Promise.resolve(null)
       ]);
 
@@ -78,7 +78,9 @@ export function AppProvider({ children }) {
           rating: Number(p.average_rating || p.rating || 5.0),
           originalPrice: p.originalPrice || p.original_price || Number(p.price),
           discount: p.discount || '',
-          isActive: p.is_active !== undefined ? Boolean(p.is_active) : (p.isActive !== undefined ? Boolean(p.isActive) : true)
+          isActive: p.is_active !== undefined ? Boolean(p.is_active) : (p.isActive !== undefined ? Boolean(p.isActive) : true),
+          isDeleted: Boolean(p.deleted_at || p.deletedAt),
+          deletedAt: p.deleted_at || p.deletedAt || null
         }));
         setProducts(formattedProducts);
       } else {

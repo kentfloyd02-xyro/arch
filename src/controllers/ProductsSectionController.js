@@ -28,9 +28,9 @@ export function useProductsSectionController() {
     }))
   ];
 
-  // Filter products based on active category and user search query (hide archived)
+  // Filter products based on active category and user search query (hide archived and deleted)
   const filteredProducts = products.filter((product) => {
-    if (product.isActive === false) return false;
+    if (product.isActive === false || product.isDeleted) return false;
     const matchesCategory =
       selectedCategory === 'all' || product.category === selectedCategory;
     const query = (searchQuery || '').toLowerCase().trim();

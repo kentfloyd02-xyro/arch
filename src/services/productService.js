@@ -36,8 +36,13 @@ export const productService = {
       body: JSON.stringify({ isActive })
     }),
 
-  deleteProduct: (id) =>
-    request(`/shop/products/${id}`, {
+  restoreProduct: (id) =>
+    request(`/shop/products/${id}/restore`, {
+      method: 'PATCH'
+    }),
+
+  deleteProduct: (id, permanent = false) =>
+    request(`/shop/products/${id}${permanent ? '?permanent=true' : ''}`, {
       method: 'DELETE'
     })
 };

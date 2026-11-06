@@ -25,51 +25,6 @@ import Toast from './components/ui/Toast';
 function AppContent() {
   const { currentView, isApiConnected, isApiLoading, refreshAllData } = useApp();
 
-  // Wait for active connection to online backend API
-  if (!isApiConnected || isApiLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0b1b3d] text-white p-6 relative overflow-hidden">
-        {/* Background ambient glow */}
-        <div className="absolute w-96 h-96 bg-blue-600/10 rounded-full blur-3xl -top-20 -left-20 pointer-events-none" />
-        <div className="absolute w-96 h-96 bg-amber-500/10 rounded-full blur-3xl -bottom-20 -right-20 pointer-events-none" />
-
-        <div className="relative flex flex-col items-center text-center max-w-md z-10">
-          {/* Animated Spinner */}
-          <div className="relative w-20 h-20 mb-6 flex items-center justify-center">
-            <div className="absolute inset-0 border-4 border-slate-700 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-xl font-black text-amber-400 tracking-tighter">AN</span>
-          </div>
-
-          <h1 className="text-2xl font-black tracking-tight text-white">ARCHON NELL</h1>
-          <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold mt-1">
-            Industrial Solutions & Construction Supplies
-          </p>
-
-          <div className="mt-8 flex items-center gap-2.5 bg-slate-800/80 border border-slate-700/60 px-4 py-2 rounded-xl text-xs text-slate-300 backdrop-blur-sm">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
-            <span>Connecting to Backend API & Database...</span>
-          </div>
-
-          <p className="text-[11px] text-slate-400 mt-4 leading-relaxed">
-            Please start the backend server in your terminal:
-            <br />
-            <code className="inline-block mt-1.5 px-3 py-1 bg-slate-900 border border-slate-700 rounded-md font-mono text-amber-300 text-xs">
-              npm run dev
-            </code>
-          </p>
-
-          <button
-            onClick={() => refreshAllData?.()}
-            className="mt-6 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow transition-all active:scale-95"
-          >
-            Check Connection
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 font-sans selection:bg-blue-600 selection:text-white">
       {/* Top Contact Strip */}

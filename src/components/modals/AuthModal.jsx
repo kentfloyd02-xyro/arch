@@ -588,7 +588,7 @@ export default function AuthModal() {
                     <span>Hardware TPM 2.0 & Physical Key Authentication</span>
                   </div>
 
-                  <p className="text-xs text-slate-500 mt-2.5">
+                  <p className="text-sm text-slate-500 mt-2.5">
                     Unprovisioned hardware controller?{' '}
                     <button
                       type="button"
@@ -598,7 +598,7 @@ export default function AuthModal() {
                       }}
                       className="font-bold text-[#C25E38] hover:text-[#9A4323] transition-colors"
                     >
-                      Contact Hardware Lead / Register
+                      Register
                     </button>
                   </p>
                 </div>
