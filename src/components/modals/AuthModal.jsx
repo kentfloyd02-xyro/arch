@@ -875,7 +875,7 @@ export default function AuthModal() {
                       required
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
-                      placeholder="e.g. Roland Martinez"
+                      placeholder="e.g. R**** M****"
                       className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900"
                     />
                   </div>
@@ -887,7 +887,7 @@ export default function AuthModal() {
                       required
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="operator@company.com"
+                      placeholder="R******@company.com"
                       className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900"
                     />
                   </div>
@@ -919,7 +919,7 @@ export default function AuthModal() {
                         const clean = e.target.value.replace(/\D/g, '').slice(0, 11);
                         setRegPhone(clean);
                       }}
-                      placeholder="09171234567"
+                      placeholder="09XX-XXX-XXXX"
                       className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900 font-mono tracking-wider"
                     />
                   </div>
@@ -936,7 +936,7 @@ export default function AuthModal() {
                     type="text"
                     value={regAddress}
                     onChange={(e) => setRegAddress(e.target.value)}
-                    placeholder="Depot address or project location (optional)"
+                    placeholder="Current address or project location (optional)"
                     className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-slate-800 text-slate-900"
                   />
                 </div>
