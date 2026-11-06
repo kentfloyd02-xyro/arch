@@ -23,10 +23,10 @@ import AdminView from './views/AdminView.jsx';
 import Toast from './components/ui/Toast';
 
 function AppContent() {
-  const { currentView, isApiConnected, isApiLoading, refreshAllData } = useApp();
+  const { currentView, isApiConnected, isApiLoading, refreshAllData, dismissLoading } = useApp();
 
-  // Wait for active connection to online backend API
-  if (!isApiConnected || isApiLoading) {
+  // Show full-screen connection splash only during initial load
+  if (isApiLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0b1b3d] text-white p-6 relative overflow-hidden">
         {/* Background ambient glow */}
@@ -59,12 +59,20 @@ function AppContent() {
             </code>
           </p>
 
-          <button
-            onClick={() => refreshAllData?.()}
-            className="mt-6 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow transition-all active:scale-95"
-          >
-            Check Connection
-          </button>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => refreshAllData?.()}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow transition-all active:scale-95 cursor-pointer"
+            >
+              Check Connection
+            </button>
+            <button
+              onClick={() => dismissLoading?.()}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold rounded-lg transition-all active:scale-95 cursor-pointer"
+            >
+              Proceed to Store
+            </button>
+          </div>
         </div>
       </div>
     );
