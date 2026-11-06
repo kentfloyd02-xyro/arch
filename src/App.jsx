@@ -33,24 +33,6 @@ function AppContent() {
       {/* Sticky Navy Navbar with Clean Login Button & Dashboard Gateway */}
       <Navbar />
 
-      {/* Backend API Offline Alert Banner */}
-      {!isApiConnected && !isApiLoading && (
-        <div className="bg-amber-600 text-white px-4 py-2.5 shadow-md border-b border-amber-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs z-40 sticky top-0 sm:top-[72px]">
-          <div className="flex items-center gap-2 text-center sm:text-left">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-200 animate-ping shrink-0" />
-            <span>
-              <strong>Backend Disconnected:</strong> Please run the backend server in terminal (<code className="bg-amber-700 px-1.5 py-0.5 rounded font-mono">cd arch_api && npm run dev</code>) for live database synchronization.
-            </span>
-          </div>
-          <button
-            onClick={refreshAllData}
-            className="px-3 py-1 bg-white hover:bg-amber-50 text-amber-800 font-bold rounded-lg shadow-sm text-xs shrink-0 transition-all active:scale-95"
-          >
-            Retry Connection
-          </button>
-        </div>
-      )}
-
       {/* Main View Router */}
       <main className="flex-1">
         {currentView === 'customer-dashboard' ? (
