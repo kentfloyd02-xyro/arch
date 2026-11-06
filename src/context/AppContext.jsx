@@ -57,9 +57,18 @@ export function AppProvider({ children }) {
       // Check health first or fetch alongside
       const healthPromise = checkApiHealth().catch(() => false);
 
+      const isAdmin = (() => {
+        try {
+          const u = JSON.parse(localStorage.getItem('archon_user') || '{}');
+          return u?.role === 'admin' || u?.global_role === 'admin' || u?.global_role === 'superadmin';
+        } catch {
+          return false;
+        }
+      })();
+
       const [isHealthy, liveProducts, liveOrders] = await Promise.all([
         healthPromise,
-        api.getProducts({ include_inactive: 'true', include_deleted: 'true' }).catch(() => null),
+        api.getProducts(isAdmin ? { include_inactive: 'true', include_deleted: 'true' } : {}).catch(() => null),
         token ? api.getOrders().catch(() => null) : Promise.resolve(null)
       ]);
 
@@ -205,6 +214,14 @@ export function AppProvider({ children }) {
     };
   }, [refreshAllData]);
 
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('archon_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { return null; }
+    }
+    return null;
+  });
+
   const [cart, setCart] = useState([]);
 
   // Helper: get the localStorage key for a specific user's cart
@@ -239,14 +256,6 @@ export function AppProvider({ children }) {
 
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState(null);
-
-  const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('archon_user');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { return null; }
-    }
-    return null;
-  });
 
   useEffect(() => {
     const token = localStorage.getItem('archon_token');

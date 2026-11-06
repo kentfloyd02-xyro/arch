@@ -22,7 +22,7 @@ export default function AdminUsersPage() {
         <div>
           <h2 className="text-base font-extrabold text-white flex items-center gap-2">
             <Users className="w-4 h-4 text-amber-400" />
-            <span>Manage Customers &amp; User Accounts ({filteredCustomers.length})</span>
+            <span>Manage Customers &amp; User Accounts</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             Registered accounts, corporate contractors, and customer order profiles with RA 10173 data privacy compliance.

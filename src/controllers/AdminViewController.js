@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { api } from '../services/api';
-import { aggregateCustomerAccounts } from './AdminUsersPageController';
 import {
   LayoutDashboard,
   Package,
@@ -37,24 +35,6 @@ export function useAdminViewController() {
   const refundOrdersCount = orders.filter(
     (o) => o.status === 'REFUND_REQUESTED' || o.status === 'REFUNDED'
   ).length;
-
-  const [totalUsersCount, setTotalUsersCount] = useState(() => {
-    return aggregateCustomerAccounts([], orders).length;
-  });
-
-  useEffect(() => {
-    let active = true;
-    api.getCustomers()
-      .then((customers) => {
-        if (!active || !Array.isArray(customers)) return;
-        const total = aggregateCustomerAccounts(customers, orders).length;
-        setTotalUsersCount(total);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [orders]);
 
   const navigation = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
