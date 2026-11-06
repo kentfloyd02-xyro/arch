@@ -169,16 +169,24 @@ export default function CustomerOrdersPage() {
 
               {/* Rejection Notice Banner */}
               {order.isRejectedRefund && (
-                <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-200">
-                  <div className="flex items-center gap-1.5 font-bold text-rose-300">
-                    <XCircle size={14} className="text-rose-400 shrink-0" />
-                    <span>Return Request Rejected (1-Trial Limit Policy)</span>
+                <div className="rounded-xl bg-rose-500/15 border border-rose-500/40 p-3.5 text-xs text-rose-200 shadow-md space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-rose-300">
+                    <XCircle size={16} className="text-rose-400 shrink-0" />
+                    <span className="text-xs uppercase tracking-wide">NOTICE: Return Request Rejected</span>
                   </div>
-                  <p className="mt-1 text-slate-200 text-[11px]">
-                    <span className="font-semibold text-rose-300">Reason:</span> "{order.refundDetails?.rejectedReason || 'Claim criteria not met or invalid proof'}"
-                  </p>
-                  <p className="mt-1 text-[10px] text-slate-400">
-                    Under Archon Nell store policy, each item has a strict 1-trial return/refund limit. Further return submissions for this order are closed.
+                  <div className="bg-[#07132c] p-2.5 rounded-lg border border-rose-500/25 space-y-1">
+                    <div className="text-[11px] text-slate-200">
+                      <span className="font-bold text-rose-300">Admin Rejection Reason: </span>
+                      <span className="italic">"{order.refundDetails?.rejectedReason || 'Claim criteria not met or invalid proof'}"</span>
+                    </div>
+                    {order.refundDetails?.rejectedAt && (
+                      <p className="text-[9px] text-slate-400">
+                        Rejected on {new Date(order.refundDetails.rejectedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-300">
+                    ⚠️ <strong>1-Trial Limit Policy:</strong> Under Archon Nell store policy, each delivered order item has a single (1) return evaluation trial. Because this claim was reviewed and rejected, return requests for this order have been permanently closed.
                   </p>
                 </div>
               )}

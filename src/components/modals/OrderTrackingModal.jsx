@@ -36,6 +36,12 @@ export default function OrderTrackingModal() {
   // Active order displayed
   const currentOrder = (selectedOrderForTracking && orders.find(o => o.orderNumber === selectedOrderForTracking.orderNumber)) || (selectedOrderForTracking ? null : orders[0]) || null;
 
+  const isRejected = currentOrder && (
+    String(currentOrder.status || '').toUpperCase() === 'REFUND_REJECTED' ||
+    String(currentOrder.refundDetails?.refundStatus || '').toUpperCase() === 'REJECTED' ||
+    Boolean(currentOrder.refundDetails?.rejectedReason)
+  );
+
   const handleSearchOrder = (e) => {
     e.preventDefault();
     const found = orders.find(o => 
@@ -72,6 +78,10 @@ export default function OrderTrackingModal() {
   };
 
   const handleOpenRefund = () => {
+    if (isRejected || currentOrder?.refundDetails?.trialUsed) {
+      showToast('Each order item has a strict 1-trial return limit.', 'warning');
+      return;
+    }
     setSelectedOrderForRefund(currentOrder);
     setIsTrackingOpen(false);
     setIsRefundOpen(true);
@@ -138,7 +148,9 @@ export default function OrderTrackingModal() {
                       {currentOrder.orderNumber}
                     </span>
                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                      currentOrder.status === 'DELIVERED'
+                      isRejected
+                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                        : currentOrder.status === 'DELIVERED'
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : currentOrder.status === 'CANCELLED'
                         ? 'bg-rose-100 text-rose-800 border border-rose-300'
@@ -146,7 +158,7 @@ export default function OrderTrackingModal() {
                         ? 'bg-purple-100 text-purple-800 border border-purple-300'
                         : 'bg-blue-100 text-blue-800 border border-blue-300'
                     }`}>
-                      {currentOrder.status}
+                      {isRejected ? 'Return Rejected' : currentOrder.status}
                     </span>
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
@@ -164,6 +176,22 @@ export default function OrderTrackingModal() {
                 </div>
               </div>
 
+              {/* Notice Banner if Return Rejected */}
+              {isRejected && (
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-2 text-xs">
+                  <div className="flex items-center gap-2 text-rose-800 font-bold">
+                    <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>NOTICE: Return Claim Rejected</span>
+                  </div>
+                  <div className="p-2.5 bg-white rounded-xl border border-rose-200 text-rose-900 font-medium">
+                    Reason: "{currentOrder.refundDetails?.rejectedReason || 'Claim criteria not met or invalid proof'}"
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Under Archon Nell return policy, each delivered order has a strict 1-trial return limit. This claim is closed and cannot be re-submitted.
+                  </p>
+                </div>
+              )}
+
               {/* 5-Step Visual Tracking Timeline */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
@@ -171,7 +199,7 @@ export default function OrderTrackingModal() {
                 </h4>
 
                 <div className="relative border-l-2 border-slate-200 ml-4 pl-6 space-y-6">
-                  {currentOrder.trackingTimeline.map((step, idx) => {
+                  {(currentOrder.trackingTimeline || []).map((step, idx) => {
                     const isDone = step.done;
                     const isCancelled = step.isCancelled;
 
@@ -210,14 +238,14 @@ export default function OrderTrackingModal() {
                   Order Items Breakdown
                 </h4>
                 <div className="space-y-2">
-                  {currentOrder.items.map((item, i) => (
+                  {(currentOrder.items || []).map((item, i) => (
                     <div key={i} className="flex justify-between items-center text-xs p-2.5 bg-slate-50 rounded-xl">
                       <div>
                         <span className="font-bold text-slate-900">{item.title}</span>
-                        <div className="text-[10px] text-slate-500">Qty: {item.quantity} × PHP {item.price.toLocaleString()}</div>
+                        <div className="text-[10px] text-slate-500">Qty: {item.quantity} × PHP {Number(item.price || 0).toLocaleString()}</div>
                       </div>
                       <span className="font-extrabold text-blue-600">
-                        PHP {item.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        PHP {Number(item.total ?? (item.price * item.quantity)).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                   ))}
@@ -226,7 +254,7 @@ export default function OrderTrackingModal() {
                 <div className="flex justify-between items-center text-xs font-bold text-slate-800 pt-2 px-2">
                   <span>Grand Total (including freight & discounts):</span>
                   <span className="text-blue-600 text-sm">
-                    PHP {currentOrder.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    PHP {Number(currentOrder.totalAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
@@ -243,7 +271,11 @@ export default function OrderTrackingModal() {
                   </button>
                 )}
 
-                {currentOrder.status === 'DELIVERED' && (
+                {currentOrder.status === 'DELIVERED' && 
+                 !isRejected && 
+                 currentOrder.status !== 'REFUNDED' && 
+                 currentOrder.status !== 'REFUND_REQUESTED' && 
+                 !currentOrder.refundDetails?.trialUsed && (
                   <button
                     onClick={handleOpenRefund}
                     className="px-4 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-300 text-purple-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all"
@@ -326,7 +358,7 @@ export default function OrderTrackingModal() {
                       disabled={cancelReasonType === 'Other reason' && (cancelOtherReason.trim().length < 8 || cancelOtherReason.trim().length > 25)}
                       className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Confirm Cancellation & Restore Stock
+                      Confirm Cancellation &amp; Restore Stock
                     </button>
                     <button
                       onClick={() => {

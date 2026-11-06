@@ -62,11 +62,20 @@ export function useCustomerOrdersPageController() {
   useEffect(() => {
     try {
       const ackList = JSON.parse(localStorage.getItem('archon_ack_rejections') || '[]');
-      const newlyRejected = customerOrders.find(
-        (o) =>
-          (o.status === 'REFUND_REJECTED' || o.refundDetails?.refundStatus === 'REJECTED') &&
-          !ackList.includes(o.orderNumber)
-      );
+      const newlyRejected = customerOrders.find((o) => {
+        const s = String(o.status || o.deliveryStatus || '').toUpperCase();
+        const rDet =
+          o.refundDetails ||
+          (typeof o.refund_details === 'string' ? JSON.parse(o.refund_details) : o.refund_details) ||
+          {};
+        const rSt = String(rDet.refundStatus || rDet.status || '').toUpperCase();
+        const isRej =
+          s === 'REFUND_REJECTED' ||
+          rSt === 'REJECTED' ||
+          Boolean(rDet.rejectedReason) ||
+          Boolean(rDet.trialUsed && s !== 'REFUNDED');
+        return isRej && !ackList.includes(o.orderNumber);
+      });
       if (newlyRejected) {
         setRejectionPopupOrder(newlyRejected);
       }
@@ -94,47 +103,84 @@ export function useCustomerOrdersPageController() {
         !q ||
         order.orderNumber.toLowerCase().includes(q) ||
         (order.items || []).some((item) => item.title.toLowerCase().includes(q));
-      return matchesSearch && (statusFilter === 'all' || order.status === statusFilter);
+      if (!matchesSearch) return false;
+      if (statusFilter === 'all') return true;
+
+      const rawStatus = String(order.status || order.deliveryStatus || '').toUpperCase();
+      const rDet =
+        order.refundDetails ||
+        (typeof order.refund_details === 'string' ? JSON.parse(order.refund_details) : order.refund_details) ||
+        {};
+      const rSt = String(rDet.refundStatus || rDet.status || '').toUpperCase();
+      const isRej =
+        rawStatus === 'REFUND_REJECTED' ||
+        rSt === 'REJECTED' ||
+        Boolean(rDet.rejectedReason) ||
+        Boolean(rDet.trialUsed && rawStatus !== 'REFUNDED');
+
+      if (statusFilter === 'REFUND_REJECTED') return isRej;
+      return rawStatus === statusFilter;
     })
     .map((order) => {
-      const delivered = order.status === 'DELIVERED';
-      const isApprovedRefund = order.status === 'REFUNDED' || order.refundDetails?.refundStatus === 'APPROVED';
-      const isRejectedRefund = order.status === 'REFUND_REJECTED' || order.refundDetails?.refundStatus === 'REJECTED';
-      const isRefundRequested = order.status === 'REFUND_REQUESTED' || order.refundDetails?.refundStatus === 'PENDING_REVIEW';
-      const isCancelled = order.status === 'CANCELLED';
-      const canCancel = ['CONFIRMED', 'PENDING'].includes(order.status);
-      const inProgress = ['CONFIRMED', 'PREPARING', 'IN_TRANSIT'].includes(order.status);
+      const rawStatus = String(order.status || order.deliveryStatus || '').toUpperCase();
+      const rDetails =
+        order.refundDetails ||
+        (typeof order.refund_details === 'string' ? JSON.parse(order.refund_details) : order.refund_details) ||
+        {};
+      const rStatus = String(rDetails.refundStatus || rDetails.status || '').toUpperCase();
+
+      const isRejectedRefund =
+        rawStatus === 'REFUND_REJECTED' ||
+        rStatus === 'REJECTED' ||
+        Boolean(rDetails.rejectedReason) ||
+        Boolean(rDetails.trialUsed && rawStatus !== 'REFUNDED');
+
+      const isApprovedRefund = rawStatus === 'REFUNDED' || rStatus === 'APPROVED';
+      const isRefundRequested =
+        (rawStatus === 'REFUND_REQUESTED' || rStatus === 'PENDING_REVIEW') &&
+        !isRejectedRefund &&
+        !isApprovedRefund;
+
+      const isCancelled = rawStatus === 'CANCELLED';
+      const delivered = rawStatus === 'DELIVERED';
+      const canCancel = ['CONFIRMED', 'PENDING'].includes(rawStatus);
+      const inProgress = ['CONFIRMED', 'PREPARING', 'IN_TRANSIT'].includes(rawStatus);
 
       // Strict 1-trial policy: once requested, approved, or rejected, return cannot be requested again
       const isReturnTrialUsed =
         isRefundRequested ||
         isApprovedRefund ||
         isRejectedRefund ||
-        Boolean(order.refundDetails?.trialUsed);
+        Boolean(rDetails.trialUsed);
       const canRequestReturn = delivered && !isReturnTrialUsed;
 
-      const statusLabels = {
-        CONFIRMED: 'Processing',
-        PREPARING: 'Preparing',
-        IN_TRANSIT: 'Shipped · Out for delivery',
-        DELIVERED: 'Delivered',
-        CANCELLED: 'Cancelled',
-        REFUND_REQUESTED: 'Return under review',
-        REFUNDED: 'Refund completed',
-        REFUND_REJECTED: 'Return rejected'
-      };
+      let statusLabel = 'Delivered';
+      let statusBadgeClass = 'bg-blue-500/15 text-blue-200';
 
-      const statusBadgeClass = delivered
-        ? 'bg-emerald-500/15 text-emerald-300'
-        : isRejectedRefund
-        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-        : isCancelled
-        ? 'bg-rose-500/15 text-rose-300'
-        : isApprovedRefund
-        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-        : isRefundRequested
-        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-        : 'bg-blue-500/15 text-blue-200';
+      if (isRejectedRefund) {
+        statusLabel = 'Return rejected';
+        statusBadgeClass = 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
+      } else if (isApprovedRefund) {
+        statusLabel = 'Refund completed';
+        statusBadgeClass = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      } else if (isRefundRequested) {
+        statusLabel = 'Return under review';
+        statusBadgeClass = 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
+      } else if (isCancelled) {
+        statusLabel = 'Cancelled';
+        statusBadgeClass = 'bg-rose-500/15 text-rose-300';
+      } else if (delivered) {
+        statusLabel = 'Delivered';
+        statusBadgeClass = 'bg-emerald-500/15 text-emerald-300';
+      } else {
+        const statusLabels = {
+          CONFIRMED: 'Processing',
+          PREPARING: 'Preparing',
+          IN_TRANSIT: 'Shipped · Out for delivery'
+        };
+        statusLabel = statusLabels[rawStatus] || rawStatus;
+        statusBadgeClass = 'bg-blue-500/15 text-blue-200';
+      }
 
       const items = (order.items || []).map((item) => ({
         ...item,
@@ -143,6 +189,10 @@ export function useCustomerOrdersPageController() {
 
       return {
         ...order,
+        refundDetails: {
+          ...rDetails,
+          rejectedReason: rDetails.rejectedReason || order.cancelReason || 'Claim criteria not met or invalid proof'
+        },
         delivered,
         isApprovedRefund,
         isRejectedRefund,
@@ -153,7 +203,7 @@ export function useCustomerOrdersPageController() {
         isCancelled,
         canCancel,
         inProgress,
-        statusLabel: statusLabels[order.status] || order.status,
+        statusLabel,
         statusBadgeClass,
         formattedDate: new Date(order.date || order.createdAt).toLocaleDateString(),
         formattedTotal: formatMoney(order.totalAmount),
