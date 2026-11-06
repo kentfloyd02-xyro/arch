@@ -1,59 +1,59 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
-  LayoutDashboard,
-  Package,
-  FileText,
-  Truck,
-  RotateCcw,
-  Users,
-  ClipboardList,
-  MessageCircle
+    LayoutDashboard,
+    Package,
+    FileText,
+    Truck,
+    RotateCcw,
+    Users,
+    ClipboardList,
+    MessageCircle
 } from 'lucide-react';
 
 export function useAdminViewController() {
-  const { setCurrentView, logoutUser, products, orders } = useApp();
+    const { setCurrentView, logoutUser, products, orders } = useApp();
 
-  const [activeTab, setActiveTabState] = useState(() => {
-    try {
-      const savedTab = localStorage.getItem('archon_admin_active_tab');
-      const validTabs = ['dashboard', 'inventory', 'orders', 'shipments', 'refunds', 'support', 'users', 'audit'];
-      if (savedTab && validTabs.includes(savedTab)) {
-        return savedTab;
-      }
-    } catch (e) {}
-    return 'dashboard';
-  });
+    const [activeTab, setActiveTabState] = useState(() => {
+        try {
+            const savedTab = localStorage.getItem('archon_admin_active_tab');
+            const validTabs = ['dashboard', 'inventory', 'orders', 'shipments', 'refunds', 'support', 'users', 'audit'];
+            if (savedTab && validTabs.includes(savedTab)) {
+                return savedTab;
+            }
+        } catch (e) {}
+        return 'dashboard';
+    });
 
-  const setActiveTab = (tab) => {
-    setActiveTabState(tab);
-    try {
-      localStorage.setItem('archon_admin_active_tab', tab);
-    } catch (e) {}
-  };
+    const setActiveTab = (tab) => {
+        setActiveTabState(tab);
+        try {
+            localStorage.setItem('archon_admin_active_tab', tab);
+        } catch (e) {}
+    };
 
-  const refundOrdersCount = orders.filter(
-    (o) => o.status === 'REFUND_REQUESTED' || o.status === 'REFUNDED'
-  ).length;
+    const refundOrdersCount = orders.filter(
+        (o) => o.status === 'REFUND_REQUESTED' || o.status === 'REFUNDED'
+    ).length;
 
-  const navigation = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'inventory', label: 'Product & Inventory', icon: Package, count: products.filter(p => !p.isDeleted).length },
-    { id: 'orders', label: 'Orders', icon: FileText, count: orders.length },
-    { id: 'shipments', label: 'Delivery Status', icon: Truck, count: orders.length },
-    { id: 'refunds', label: 'Returns & Refunds', icon: RotateCcw, count: refundOrdersCount },
-    { id: 'support', label: 'Help Desk', icon: MessageCircle },
-    { id: 'users', label: 'Manage Users', icon: Users },
-    { id: 'audit', label: 'Audit Logs', icon: ClipboardList }
-  ];
+    const navigation = [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'inventory', label: 'Product & Inventory', icon: Package, count: products.filter(p => !p.isDeleted).length },
+        { id: 'orders', label: 'Orders', icon: FileText, count: orders.length },
+        { id: 'shipments', label: 'Delivery Status', icon: Truck, count: orders.length },
+        { id: 'refunds', label: 'Returns & Refunds', icon: RotateCcw },
+        { id: 'support', label: 'Help Desk', icon: MessageCircle },
+        { id: 'users', label: 'Manage Users', icon: Users },
+        { id: 'audit', label: 'Audit Logs', icon: ClipboardList }
+    ];
 
-  return {
-    setCurrentView,
-    logoutUser,
-    activeTab,
-    setActiveTab,
-    navigation
-  };
+    return {
+        setCurrentView,
+        logoutUser,
+        activeTab,
+        setActiveTab,
+        navigation
+    };
 }
 
 export default useAdminViewController;

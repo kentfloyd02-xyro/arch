@@ -113,7 +113,9 @@ export function AppProvider({ children }) {
           const rawSubtotal = Number(o.subtotal ?? 0);
           const rawShipping = Number(o.shippingFee ?? o.shipping_fee ?? 0);
           const rawDiscount = Number(o.discountAmount ?? o.discount_amount ?? o.discount ?? 0);
-          const rawStatus = (localRefund?.status || o.status || o.delivery_status || 'DELIVERED').toUpperCase();
+          // Use actual DB order status (not refund status) for timeline computation
+          const orderActualStatus = (o.status || o.delivery_status || 'CONFIRMED').toUpperCase();
+          const rawStatus = (localRefund?.status || o.status || o.delivery_status || 'CONFIRMED').toUpperCase();
           let parsedRefundDetails = localRefund?.refundDetails || null;
           if (!parsedRefundDetails) {
             if (o.refund_details) {
@@ -149,7 +151,21 @@ export function AppProvider({ children }) {
             discountAmount: rawDiscount,
             discountType: o.discountType || o.discount_type || '',
             items: Array.isArray(o.items) ? o.items : (Array.isArray(o.order_items) ? o.order_items : []),
-            trackingTimeline: o.trackingTimeline || o.tracking_steps || [],
+            trackingTimeline: (() => {
+              const rawTl = o.trackingTimeline || o.tracking_steps || [];
+              // Auto-complete steps based on the actual order delivery status (not refund status)
+              const statusForTimeline = orderActualStatus;
+              if (statusForTimeline === 'DELIVERED') {
+                return rawTl.map(step => ({ ...step, done: true }));
+              } else if (statusForTimeline === 'IN_TRANSIT') {
+                return rawTl.map((step, i) => i <= 3 ? { ...step, done: true } : step);
+              } else if (statusForTimeline === 'PREPARING') {
+                return rawTl.map((step, i) => i <= 2 ? { ...step, done: true } : step);
+              } else if (statusForTimeline === 'CONFIRMED') {
+                return rawTl.map((step, i) => i <= 1 ? { ...step, done: true } : step);
+              }
+              return rawTl;
+            })(),
             date: o.date || (o.createdAt ? new Date(o.createdAt).toISOString() : (o.created_at ? new Date(o.created_at).toISOString() : new Date().toISOString()))
           };
         }));
