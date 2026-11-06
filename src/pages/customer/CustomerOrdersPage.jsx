@@ -165,26 +165,25 @@ export default function CustomerOrdersPage() {
                 </button>
 
                 {order.delivered && (
-                  <button
-                    type="button"
-                    onClick={() => openRateModal(order)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-[10px] font-bold text-amber-200 hover:bg-amber-500/25 shadow-sm transition-all"
-                  >
-                    <Star
-                      size={13}
-                      className={order.rating ? 'fill-amber-400 text-amber-400' : 'text-amber-300'}
-                    />
-                    <span>{order.rating ? `Rated (${order.rating}★)` : 'Rate'}</span>
-                  </button>
+                  (order.rating || order.customerRating || order.isRated) ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[10px] font-bold text-amber-300 cursor-default select-none shadow-sm"
+                      title="Rating already submitted and locked"
+                    >
+                      <Star size={13} className="fill-amber-400 text-amber-400" />
+                      <span>Rated ({order.customerRating || order.rating || 5}★)</span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openRateModal(order)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-[10px] font-bold text-amber-200 hover:bg-amber-500/25 shadow-sm transition-all"
+                    >
+                      <Star size={13} className="text-amber-300" />
+                      <span>Rate</span>
+                    </button>
+                  )
                 )}
-
-                <button
-                  onClick={() => downloadInvoice(order)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#142958] px-3 py-2 text-[10px] font-bold text-slate-200 hover:bg-[#142958] transition-colors"
-                >
-                  <Download size={13} />
-                  Invoice
-                </button>
 
                 <button
                   onClick={() => reorder(order)}

@@ -96,24 +96,37 @@ export function AppProvider({ children }) {
         setProducts([]);
       }
 
+      let storedRefunds = {};
+      let storedRatings = {};
+      try {
+        storedRefunds = JSON.parse(localStorage.getItem('archon_refund_status') || '{}');
+        storedRatings = JSON.parse(localStorage.getItem('archon_order_ratings') || '{}');
+      } catch {}
+
       if (Array.isArray(liveOrders) && liveOrders.length > 0) {
         setOrders(liveOrders.map(o => {
+          const orderNum = o.orderNumber || o.order_number || o.id;
+          const localRefund = storedRefunds[orderNum];
+          const localRating = storedRatings[orderNum];
+
           const rawTotal = Number(o.totalAmount ?? o.total_amount ?? o.total ?? 0);
           const rawSubtotal = Number(o.subtotal ?? 0);
           const rawShipping = Number(o.shippingFee ?? o.shipping_fee ?? 0);
           const rawDiscount = Number(o.discountAmount ?? o.discount_amount ?? o.discount ?? 0);
-          const rawStatus = (o.status || o.delivery_status || 'DELIVERED').toUpperCase();
-          let parsedRefundDetails = null;
-          if (o.refund_details) {
-            parsedRefundDetails = typeof o.refund_details === 'string' ? JSON.parse(o.refund_details) : o.refund_details;
-          } else if (o.refundDetails) {
-            parsedRefundDetails = o.refundDetails;
+          const rawStatus = (localRefund?.status || o.status || o.delivery_status || 'DELIVERED').toUpperCase();
+          let parsedRefundDetails = localRefund?.refundDetails || null;
+          if (!parsedRefundDetails) {
+            if (o.refund_details) {
+              parsedRefundDetails = typeof o.refund_details === 'string' ? JSON.parse(o.refund_details) : o.refund_details;
+            } else if (o.refundDetails) {
+              parsedRefundDetails = o.refundDetails;
+            }
           }
 
           return {
             ...o,
-            id: o.orderNumber || o.order_number || o._id || o.id,
-            orderNumber: o.orderNumber || o.order_number || o.id,
+            id: orderNum,
+            orderNumber: orderNum,
             customerName: o.customerName || o.customer_name || 'Customer',
             customerEmail: o.customerEmail || o.customer_email || '',
             customerPhone: o.customerPhone || o.customer_phone || '',
@@ -126,6 +139,10 @@ export function AppProvider({ children }) {
             cancelReason: o.cancel_reason || o.cancelReason || '',
             cancelledAt: o.cancelled_at || o.cancelledAt || null,
             refundDetails: parsedRefundDetails,
+            customerRating: localRating?.rating || o.rating || o.customer_rating || null,
+            rating: localRating?.rating || o.rating || o.customer_rating || null,
+            isRated: Boolean(localRating || o.rating || o.customer_rating || o.is_rated || o.isRated),
+            ratedAt: localRating?.ratedAt || o.rated_at || o.ratedAt || null,
             totalAmount: rawTotal,
             subtotal: rawSubtotal,
             shippingFee: rawShipping,
@@ -618,21 +635,25 @@ export function AppProvider({ children }) {
       const payload = {
         ...orderData,
         userId: currentUser?._id || currentUser?.id || null,
-        total: orderData.totalAmount || orderData.total,
-        totalAmount: orderData.totalAmount || orderData.total,
-        discount: orderData.discountAmount || orderData.discount || 0,
-        discountAmount: orderData.discountAmount || orderData.discount || 0,
-        shippingFee: orderData.shippingFee || 0,
-        subtotal: orderData.subtotal,
-        items: orderData.items.map(i => ({
-          id: i.id || i.customId,
-          customId: i.id || i.customId,
-          productId: i.productId || i.id || i.customId,
-          title: i.title,
-          price: i.price,
-          quantity: i.quantity,
-          total: i.price * i.quantity
-        }))
+        total: Number(orderData.totalAmount || orderData.total || 0),
+        totalAmount: Number(orderData.totalAmount || orderData.total || 0),
+        discount: Number(orderData.discountAmount || orderData.discount || 0),
+        discountAmount: Number(orderData.discountAmount || orderData.discount || 0),
+        shippingFee: Number(orderData.shippingFee || 0),
+        subtotal: Number(orderData.subtotal || 0),
+        items: (orderData.items || []).map(i => {
+          const itemPrice = Number(i.price || 0);
+          const itemQty = Number(i.quantity || 1);
+          return {
+            id: i.id || i.customId,
+            customId: i.id || i.customId,
+            productId: i.productId || i.id || i.customId,
+            title: i.title,
+            price: itemPrice,
+            quantity: itemQty,
+            total: itemPrice * itemQty
+          };
+        })
       };
 
       const backendOrder = await api.createOrder(payload);
@@ -822,6 +843,22 @@ export function AppProvider({ children }) {
     }
 
     try {
+      const stored = JSON.parse(localStorage.getItem('archon_refund_status') || '{}');
+      stored[orderNumber] = {
+        status: 'REFUND_REQUESTED',
+        deliveryStatus: 'REFUND_REQUESTED',
+        refundDetails: {
+          reason,
+          damagePhoto,
+          details,
+          requestedAt: new Date().toISOString(),
+          refundStatus: 'PENDING_REVIEW'
+        }
+      };
+      localStorage.setItem('archon_refund_status', JSON.stringify(stored));
+    } catch {}
+
+    try {
       await api.requestRefund(orderNumber, { reason, damagePhoto, details });
     } catch (err) {
       console.warn('API requestRefund warning:', err.message);
@@ -942,11 +979,26 @@ export function AppProvider({ children }) {
     }
 
     const ratedAt = new Date().toISOString();
+
+    try {
+      const stored = JSON.parse(localStorage.getItem('archon_order_ratings') || '{}');
+      stored[orderNumber] = {
+        rating: numRating,
+        customerRating: numRating,
+        isRated: true,
+        notes: trimmedNotes,
+        ratedAt
+      };
+      localStorage.setItem('archon_order_ratings', JSON.stringify(stored));
+    } catch {}
+
     const updatedOrders = orders.map(o => {
       if (o.orderNumber === orderNumber) {
         return {
           ...o,
           rating: numRating,
+          customerRating: numRating,
+          isRated: true,
           notes: trimmedNotes,
           ratedAt
         };

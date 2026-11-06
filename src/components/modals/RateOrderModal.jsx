@@ -54,6 +54,11 @@ export default function RateOrderModal() {
     e.preventDefault();
     setErrorMessage('');
 
+    if (selectedOrderForRating?.isRated || selectedOrderForRating?.customerRating) {
+      setErrorMessage('This order has already been rated and cannot be edited.');
+      return;
+    }
+
     if (trimmedLength < 15) {
       setErrorMessage(`Notes must be at least 15 letters. You currently have ${trimmedLength} letters.`);
       return;

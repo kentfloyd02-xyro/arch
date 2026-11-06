@@ -200,19 +200,23 @@ export default function CheckoutModal() {
       paymentMethod,
       gcashRefNumber: gcashRefNumber.trim(),
       proofImage,
-      items: cart.map(item => ({
-        id: item.product.id,
-        productId: item.product.dbId || item.product._id || item.product.id,
-        title: item.product.title,
-        price: item.product.price,
-        quantity: item.quantity,
-        total: item.product.price * item.quantity
-      })),
-      subtotal: cartSubtotal,
-      shippingFee,
-      discountAmount: effectiveDiscount,
+      items: cart.map(item => {
+        const itemPrice = Number(item.product.price || 0);
+        const itemQty = Number(item.quantity || 1);
+        return {
+          id: item.product.id,
+          productId: item.product.dbId || item.product._id || item.product.id,
+          title: item.product.title,
+          price: itemPrice,
+          quantity: itemQty,
+          total: itemPrice * itemQty
+        };
+      }),
+      subtotal: Number(cartSubtotal || 0),
+      shippingFee: Number(shippingFee || 0),
+      discountAmount: Number(effectiveDiscount || 0),
       discountType,
-      totalAmount: finalTotal
+      totalAmount: Number(finalTotal || 0)
     };
 
     try {
