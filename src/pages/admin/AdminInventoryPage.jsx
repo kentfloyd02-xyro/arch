@@ -191,6 +191,7 @@ export default function AdminInventoryPage() {
           <label className="text-[10px] font-semibold text-slate-400 sm:col-span-2">
             Product image
             <input
+              required
               type="file"
               accept="image/*"
               onChange={handleImageUpload}
