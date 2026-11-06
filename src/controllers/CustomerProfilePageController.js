@@ -26,7 +26,7 @@ export function useCustomerProfilePageController() {
     currentUser?.billingPreference || 'standard'
   );
 
-  const storagePrefix = `archon-customer-${currentUser?.id || 'guest'}`;
+  const storagePrefix = `archon-customer-${currentUser?.id || currentUser?.email || 'guest'}`;
 
   const readLocal = (key, fallback) => {
     try {

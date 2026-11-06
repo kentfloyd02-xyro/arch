@@ -83,7 +83,7 @@ export default function AccountSettingsModal() {
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-extrabold text-white">Account Settings &amp; Preferences</h3>
-              <p className="text-[11px] text-slate-300">Edit your sample profile (browser only)</p>
+              <p className="text-[11px] text-slate-300">Manage your profile and dispatch preferences</p>
             </div>
           </div>
           <button

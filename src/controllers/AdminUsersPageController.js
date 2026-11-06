@@ -27,52 +27,30 @@ export function maskAddress(address) {
   return '[Site Address Protected under RA 10173]';
 }
 
-export function useAdminUsersPageController() {
-  const { orders } = useApp();
-
-  const [registeredUsers, setRegisteredUsers] = useState([]);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [userSearch, setUserSearch] = useState('');
-  const [userConsentFilter, setUserConsentFilter] = useState('all');
-
-  const fetchRegisteredUsers = (isBackground = false) => {
-    if (!isBackground) setUsersLoading(true);
-    api.getCustomers()
-      .then((data) => {
-        if (Array.isArray(data)) setRegisteredUsers(data);
-      })
-      .catch((err) => console.warn('Registered customers fetch:', err.message))
-      .finally(() => {
-        if (!isBackground) setUsersLoading(false);
-      });
-  };
-
-  useEffect(() => {
-    fetchRegisteredUsers();
-  }, []);
-
-  // Aggregation of registered users and order guest customers
+export function aggregateCustomerAccounts(registeredUsers = [], orders = []) {
   const allCustomersMap = new Map();
 
-  registeredUsers.forEach((u) => {
-    const email = u.email ? u.email.toLowerCase().trim() : '';
-    if (email) {
-      allCustomersMap.set(email, {
-        customerName: u.name || u.fullName || 'Customer',
-        customerEmail: u.email,
-        customerPhone: u.phone || u.phoneNumber || '',
-        company: u.company || '',
-        registeredDate: u.createdAt,
-        isRegistered: true,
-        defaultAddress: u.defaultAddress || u.address || '',
-        privacyConsent: u.privacyConsent || {
-          granted: true,
-          consentedAt: u.createdAt,
-          policyVersion: 'RA10173-2026.1'
-        }
-      });
-    }
-  });
+  if (Array.isArray(registeredUsers)) {
+    registeredUsers.forEach((u) => {
+      const email = u.email ? u.email.toLowerCase().trim() : '';
+      if (email) {
+        allCustomersMap.set(email, {
+          customerName: u.name || u.fullName || 'Customer',
+          customerEmail: u.email,
+          customerPhone: u.phone || u.phoneNumber || '',
+          company: u.company || '',
+          registeredDate: u.createdAt,
+          isRegistered: true,
+          defaultAddress: u.defaultAddress || u.address || '',
+          privacyConsent: u.privacyConsent || {
+            granted: true,
+            consentedAt: u.createdAt,
+            policyVersion: 'RA10173-2026.1'
+          }
+        });
+      }
+    });
+  }
 
   // Supplement with local registered customers cache
   try {
@@ -134,39 +112,68 @@ export function useAdminUsersPageController() {
     }
   } catch {}
 
-  orders.forEach((o) => {
-    const email = o.customerEmail
-      ? o.customerEmail.toLowerCase().trim()
-      : o.customerPhone || '';
-    if (email) {
-      const existing = allCustomersMap.get(email);
-      if (existing) {
-        if (!existing.customerPhone && o.customerPhone && existing.privacyConsent?.granted !== false) {
-          existing.customerPhone = o.customerPhone;
-        }
-        if (!existing.defaultAddress && o.deliveryAddress && existing.privacyConsent?.granted !== false) {
-          existing.defaultAddress = o.deliveryAddress;
-        }
-      } else {
-        allCustomersMap.set(email, {
-          customerName: o.customerName || 'Customer',
-          customerEmail: o.customerEmail,
-          customerPhone: o.customerPhone,
-          company: '',
-          registeredDate: o.createdAt,
-          isRegistered: false,
-          defaultAddress: o.deliveryAddress,
-          privacyConsent: {
-            granted: true,
-            consentedAt: o.createdAt,
-            policyVersion: 'RA10173-2026.1'
+  if (Array.isArray(orders)) {
+    orders.forEach((o) => {
+      const email = o.customerEmail
+        ? o.customerEmail.toLowerCase().trim()
+        : o.customerPhone || '';
+      if (email) {
+        const existing = allCustomersMap.get(email);
+        if (existing) {
+          if (!existing.customerPhone && o.customerPhone && existing.privacyConsent?.granted !== false) {
+            existing.customerPhone = o.customerPhone;
           }
-        });
+          if (!existing.defaultAddress && o.deliveryAddress && existing.privacyConsent?.granted !== false) {
+            existing.defaultAddress = o.deliveryAddress;
+          }
+        } else {
+          allCustomersMap.set(email, {
+            customerName: o.customerName || 'Customer',
+            customerEmail: o.customerEmail,
+            customerPhone: o.customerPhone,
+            company: '',
+            registeredDate: o.createdAt,
+            isRegistered: false,
+            defaultAddress: o.deliveryAddress,
+            privacyConsent: {
+              granted: true,
+              consentedAt: o.createdAt,
+              policyVersion: 'RA10173-2026.1'
+            }
+          });
+        }
       }
-    }
-  });
+    });
+  }
 
-  const customersList = [...allCustomersMap.values()];
+  return [...allCustomersMap.values()];
+}
+
+export function useAdminUsersPageController() {
+  const { orders } = useApp();
+
+  const [registeredUsers, setRegisteredUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [userConsentFilter, setUserConsentFilter] = useState('all');
+
+  const fetchRegisteredUsers = (isBackground = false) => {
+    if (!isBackground) setUsersLoading(true);
+    api.getCustomers()
+      .then((data) => {
+        if (Array.isArray(data)) setRegisteredUsers(data);
+      })
+      .catch((err) => console.warn('Registered customers fetch:', err.message))
+      .finally(() => {
+        if (!isBackground) setUsersLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchRegisteredUsers();
+  }, []);
+
+  const customersList = aggregateCustomerAccounts(registeredUsers, orders);
 
   const consentedUsersCount = customersList.filter(
     (c) => c.privacyConsent?.granted !== false

@@ -47,11 +47,15 @@ export function useCustomerOrdersPageController() {
     .filter(Boolean)
     .map((e) => e.toLowerCase());
 
-  const customerOrders = orders.filter(
-    (order) =>
-      !knownEmails.length ||
-      knownEmails.includes((order.customerEmail || '').toLowerCase())
-  );
+  const customerOrders = orders.filter((order) => {
+    if (!currentUser) return true;
+    const orderEmail = (order.customerEmail || order.customer_email || '').toLowerCase();
+    const orderUserId = order.userId || order.user_id;
+    const currentId = currentUser?.id || currentUser?._id;
+    if (orderUserId && currentId && String(orderUserId) === String(currentId)) return true;
+    if (knownEmails.length && orderEmail && knownEmails.includes(orderEmail)) return true;
+    return !knownEmails.length;
+  });
 
   const q = search.trim().toLowerCase();
 

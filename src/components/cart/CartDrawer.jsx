@@ -159,16 +159,29 @@ export default function CartDrawer() {
                       <div className="flex items-center gap-2 pt-1">
                         <div className="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
                           <button
-                            onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
+                            type="button"
+                            onClick={() => updateCartQuantity(item.product.id, Math.max(1, item.quantity - 1))}
                             className="p-1 hover:bg-slate-100 text-slate-600"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
-                          <span className="px-2.5 text-xs font-bold text-slate-800">
-                            {item.quantity}
-                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            max={maxStock}
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (isNaN(val) || val <= 0) return;
+                              const safeVal = Math.min(maxStock, val);
+                              updateCartQuantity(item.product.id, safeVal);
+                            }}
+                            className="w-14 text-center text-xs font-bold text-slate-800 border-x border-slate-200 py-1 px-1 focus:outline-none focus:bg-blue-50/50 [appearance:textfield] font-mono"
+                            title="Type exact order quantity"
+                          />
                           <button
-                            onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
+                            type="button"
+                            onClick={() => updateCartQuantity(item.product.id, Math.min(maxStock, item.quantity + 1))}
                             disabled={isMax}
                             className={`p-1 text-slate-600 ${isMax ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100'}`}
                           >

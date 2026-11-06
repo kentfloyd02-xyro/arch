@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { api } from '../services/api';
+import { aggregateCustomerAccounts } from './AdminUsersPageController';
 import {
   LayoutDashboard,
   Package,
@@ -36,9 +38,23 @@ export function useAdminViewController() {
     (o) => o.status === 'REFUND_REQUESTED' || o.status === 'REFUNDED'
   ).length;
 
-  const customerEmails = new Set(
-    orders.map((o) => (o.customerEmail || '').toLowerCase().trim()).filter(Boolean)
-  );
+  const [totalUsersCount, setTotalUsersCount] = useState(() => {
+    return aggregateCustomerAccounts([], orders).length;
+  });
+
+  useEffect(() => {
+    let active = true;
+    api.getCustomers()
+      .then((customers) => {
+        if (!active || !Array.isArray(customers)) return;
+        const total = aggregateCustomerAccounts(customers, orders).length;
+        setTotalUsersCount(total);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [orders]);
 
   const navigation = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -47,7 +63,7 @@ export function useAdminViewController() {
     { id: 'shipments', label: 'Delivery Status', icon: Truck, count: orders.length },
     { id: 'refunds', label: 'Returns & Refunds', icon: RotateCcw, count: refundOrdersCount },
     { id: 'support', label: 'Help Desk', icon: MessageCircle },
-    { id: 'users', label: 'Manage Users', icon: Users, count: customerEmails.size },
+    { id: 'users', label: 'Manage Users', icon: Users, count: totalUsersCount },
     { id: 'audit', label: 'Audit Logs', icon: ClipboardList }
   ];
 

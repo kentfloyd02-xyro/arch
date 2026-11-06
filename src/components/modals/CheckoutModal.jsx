@@ -29,6 +29,7 @@ export default function CheckoutModal() {
     shippingTierCount,
     finalTotal,
     createOrder,
+    updateCartQuantity,
     currentUser,
     updateUserProfile,
     triggerOtp,
@@ -218,13 +219,7 @@ export default function CheckoutModal() {
       const newOrder = await createOrder(orderData);
       if (newOrder) {
         const trimmedAddress = deliveryAddress.trim();
-        if (currentUser && trimmedAddress) {
-          if (updateUserProfile) {
-            updateUserProfile({
-              address: trimmedAddress,
-              defaultAddress: trimmedAddress
-            });
-          }
+        if (trimmedAddress) {
           try {
             const raw = localStorage.getItem(`${storagePrefix}-addresses`);
             let list = raw ? JSON.parse(raw) : [];
@@ -777,13 +772,85 @@ export default function CheckoutModal() {
               )}
             </div>
 
-            {/* 3. Order Summary & Price Computation Breakdown */}
+            {/* 3. Order Items & Price Computation Breakdown */}
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                3. Order Summary &amp; Price Computation
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  3. Order Items &amp; Price Computation
+                </h4>
+                <span className="text-[11px] font-bold text-slate-500">
+                  {cart.length} {cart.length === 1 ? 'Product' : 'Products'} in Order
+                </span>
+              </div>
 
-              <div className="space-y-1.5 text-xs text-slate-600">
+              {/* Directly typable item quantities at checkout */}
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {cart.map((item) => {
+                  const maxStock = item.product.stock || 5000;
+                  const isMax = item.quantity >= maxStock;
+                  return (
+                    <div key={item.product.id} className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <img
+                          src={item.product.image}
+                          alt={item.product.title}
+                          className="w-10 h-10 object-contain rounded-lg border border-slate-100 p-0.5 flex-shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate">{item.product.title}</p>
+                          <p className="text-[11px] text-blue-600 font-extrabold">
+                            PHP {item.product.price.toLocaleString('en-US', { minimumFractionDigits: 2 })} each
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden shadow-xs">
+                          <button
+                            type="button"
+                            onClick={() => updateCartQuantity(item.product.id, Math.max(1, item.quantity - 1))}
+                            className="px-2 py-1 text-slate-600 hover:bg-slate-100 transition-colors"
+                            title="Decrease quantity"
+                          >
+                            <span className="text-xs font-bold">-</span>
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max={maxStock}
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (isNaN(val) || val <= 0) return;
+                              const safeVal = Math.min(maxStock, val);
+                              updateCartQuantity(item.product.id, safeVal);
+                            }}
+                            className="w-16 text-center text-xs font-black text-slate-800 border-x border-slate-200 py-1 px-1 focus:outline-none focus:bg-blue-50/50 [appearance:textfield] font-mono"
+                            title="Type exact quantity (e.g. 1000)"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateCartQuantity(item.product.id, Math.min(maxStock, item.quantity + 1))}
+                            disabled={isMax}
+                            className={`px-2 py-1 text-slate-600 ${isMax ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100 transition-colors'}`}
+                            title="Increase quantity"
+                          >
+                            <span className="text-xs font-bold">+</span>
+                          </button>
+                        </div>
+
+                        <div className="text-right min-w-[70px]">
+                          <span className="text-xs font-black text-slate-900 block">
+                            PHP {(item.product.price * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-1.5 text-xs text-slate-600 pt-2 border-t border-slate-200">
                 <div className="flex justify-between">
                   <span>Items Subtotal ({cart.length} unique products)</span>
                   <span className="font-semibold text-slate-800">

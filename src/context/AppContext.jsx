@@ -284,16 +284,23 @@ export function AppProvider({ children }) {
   };
 
   const updateUserProfile = async (updatedData) => {
+    const merged = { ...currentUser, ...updatedData };
     try {
-      const res = await api.updateProfile(updatedData);
-      const updated = res.user || { ...currentUser, ...updatedData };
+      const res = await api.updateProfile(merged);
+      const updated = {
+        ...currentUser,
+        ...(res?.user || res?.data || {}),
+        ...updatedData
+      };
       setCurrentUser(updated);
       localStorage.setItem('archon_user', JSON.stringify(updated));
       showToast('Profile and settings updated successfully.', 'success');
+      return updated;
     } catch (err) {
-
-      setCurrentUser(prev => prev ? ({ ...prev, ...updatedData }) : null);
+      setCurrentUser(merged);
+      localStorage.setItem('archon_user', JSON.stringify(merged));
       showToast('Profile updated locally.', 'success');
+      return merged;
     }
   };
 
@@ -530,9 +537,16 @@ export function AppProvider({ children }) {
       const payload = {
         ...orderData,
         userId: currentUser?._id || currentUser?.id || null,
+        total: orderData.totalAmount || orderData.total,
+        totalAmount: orderData.totalAmount || orderData.total,
+        discount: orderData.discountAmount || orderData.discount || 0,
+        discountAmount: orderData.discountAmount || orderData.discount || 0,
+        shippingFee: orderData.shippingFee || 0,
+        subtotal: orderData.subtotal,
         items: orderData.items.map(i => ({
+          id: i.id || i.customId,
           customId: i.id || i.customId,
-          productId: i.productId,
+          productId: i.productId || i.id || i.customId,
           title: i.title,
           price: i.price,
           quantity: i.quantity,
@@ -541,7 +555,7 @@ export function AppProvider({ children }) {
       };
 
       const backendOrder = await api.createOrder(payload);
-      const raw = backendOrder.order || backendOrder;
+      const raw = backendOrder.order || backendOrder.data || backendOrder;
       const savedOrder = {
         ...raw,
         id: raw.orderNumber || raw.order_number || raw.id || payload.orderNumber,
@@ -585,7 +599,7 @@ export function AppProvider({ children }) {
       });
 
       setProducts(updatedProducts);
-      setOrders([savedOrder, ...orders]);
+      setOrders(prev => [savedOrder, ...prev.filter(o => o.orderNumber !== savedOrder.orderNumber)]);
       clearCart();
       setAppliedVoucher(null);
       showToast(`Order created successfully: ${savedOrder.orderNumber}`, 'success');

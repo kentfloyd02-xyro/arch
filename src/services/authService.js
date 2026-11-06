@@ -1,25 +1,41 @@
 import { request } from './client';
 
-function normalizeUser(u) {
-  if (!u) return u;
+function normalizeUser(u, fallbackUser = null) {
+  if (!u) return fallbackUser || u;
   const raw = u.data || u;
-  const phone = raw.phone_number || raw.phone || raw.phoneNumber || '';
-  const address = raw.default_address || raw.defaultAddress || raw.address || '';
-  const consent = raw.privacy_consent || raw.privacyConsent || {
+  let base = fallbackUser;
+  if (!base) {
+    try {
+      const stored = localStorage.getItem('archon_user');
+      if (stored) base = JSON.parse(stored);
+    } catch {}
+  }
+  base = base || {};
+
+  const phone = raw.phone_number || raw.phone || raw.phoneNumber || base.phone || base.phoneNumber || '';
+  const address = raw.default_address || raw.defaultAddress || raw.address || base.address || base.defaultAddress || '';
+  const consent = raw.privacy_consent || raw.privacyConsent || base.privacyConsent || {
     granted: true,
     consentedAt: raw.created_at || new Date().toISOString(),
     policyVersion: 'RA10173-2026.1'
   };
+  const name = raw.full_name || raw.fullName || raw.name || base.name || base.fullName || 'Customer';
+  const email = raw.email || base.email || '';
+  const role = (raw.global_role === 'superadmin' || raw.global_role === 'admin' || raw.role === 'admin' || base.role === 'admin') ? 'admin' : (raw.role || base.role || 'customer');
+
   return {
+    ...base,
     ...raw,
-    name: raw.full_name || raw.name || 'User',
-    fullName: raw.full_name || raw.name || 'User',
+    id: raw.id || base.id,
+    name,
+    fullName: name,
+    email,
     phone,
     phoneNumber: phone,
     defaultAddress: address,
     address,
     privacyConsent: consent,
-    role: (raw.global_role === 'superadmin' || raw.global_role === 'admin' || raw.role === 'admin') ? 'admin' : (raw.role || 'customer')
+    role
   };
 }
 
@@ -328,13 +344,19 @@ export const authService = {
   },
 
   updateProfile: async (data) => {
+    let currentStored = null;
+    try {
+      const rawStored = localStorage.getItem('archon_user');
+      if (rawStored) currentStored = JSON.parse(rawStored);
+    } catch {}
+
     try {
       const res = await request('/auth/profile', {
         method: 'PUT',
         body: JSON.stringify(data)
       });
       const user = res?.user || res?.data || data;
-      const normalized = normalizeUser(user);
+      const normalized = normalizeUser(user, currentStored);
 
       // Keep registered customer cache updated with revoked/granted consent or new profile info
       try {
@@ -355,7 +377,7 @@ export const authService = {
         user: normalized
       };
     } catch {
-      const normalized = normalizeUser(data);
+      const normalized = normalizeUser(data, currentStored);
       try {
         const raw = localStorage.getItem('archon_registered_customers_cache');
         if (raw) {
