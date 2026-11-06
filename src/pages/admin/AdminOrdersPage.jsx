@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAdminOrdersPageController } from '../../controllers/AdminOrdersPageController';
-import { FileText, Search, Printer, CheckCircle2, X } from 'lucide-react';
+import { FileText, Search, Printer, CheckCircle2, X, RefreshCw } from 'lucide-react';
 
 export default function AdminOrdersPage() {
   const {
@@ -19,7 +19,9 @@ export default function AdminOrdersPage() {
     isCancelDisabled,
     updateOrderStatus,
     printOrderDocument,
-    filteredOrders
+    filteredOrders,
+    handleRefresh,
+    isRefreshing
   } = useAdminOrdersPageController();
 
   return (
@@ -37,6 +39,16 @@ export default function AdminOrdersPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="px-3 py-1.5 bg-[#07132c] hover:bg-[#142958] border border-[#142958] text-xs font-bold text-slate-200 rounded-xl flex items-center gap-1.5 transition-all active:scale-95"
+            title="Reload orders from database"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+
           <select
             value={orderStatusFilter}
             onChange={(e) => setOrderStatusFilter(e.target.value)}

@@ -77,7 +77,8 @@ export function AppProvider({ children }) {
           specs: Array.isArray(p.specs) ? p.specs : (p.specs && typeof p.specs === 'object' ? Object.values(p.specs) : []),
           rating: Number(p.average_rating || p.rating || 5.0),
           originalPrice: p.originalPrice || p.original_price || Number(p.price),
-          discount: p.discount || ''
+          discount: p.discount || '',
+          isActive: p.is_active !== undefined ? Boolean(p.is_active) : (p.isActive !== undefined ? Boolean(p.isActive) : true)
         }));
         setProducts(formattedProducts);
       } else {
@@ -188,6 +189,18 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     refreshAllData();
+  }, [refreshAllData, currentView]);
+
+  useEffect(() => {
+    const handleStorageOrSync = () => {
+      refreshAllData();
+    };
+    window.addEventListener('storage', handleStorageOrSync);
+    window.addEventListener('archon_sync', handleStorageOrSync);
+    return () => {
+      window.removeEventListener('storage', handleStorageOrSync);
+      window.removeEventListener('archon_sync', handleStorageOrSync);
+    };
   }, [refreshAllData]);
 
   const [cart, setCart] = useState(() => {
@@ -459,7 +472,7 @@ export function AppProvider({ children }) {
   const totalItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   // Bulky 10% volume discount strictly activates when order quantity exceeds 5 units (> 5)
-  const isBulkyOrder = totalItemCount > 5;
+  const isBulkyOrder = totalItemCount > 4;
   const bulkyDiscountAmount = isBulkyOrder ? Math.round(cartSubtotal * 0.10) : 0;
 
   let voucherDiscountAmount = 0;
@@ -603,6 +616,19 @@ export function AppProvider({ children }) {
       clearCart();
       setAppliedVoucher(null);
       showToast(`Order created successfully: ${savedOrder.orderNumber}`, 'success');
+
+      api.logActivity(
+        'orders',
+        'ORDER_CREATED',
+        `New order #${savedOrder.orderNumber} placed by ${savedOrder.customerName} (PHP ${Number(savedOrder.totalAmount || 0).toLocaleString()} via ${savedOrder.paymentMethod})`,
+        savedOrder.orderNumber
+      );
+
+      try {
+        localStorage.setItem('archon_last_sync', Date.now().toString());
+        window.dispatchEvent(new Event('archon_sync'));
+      } catch {}
+
       return savedOrder;
     } catch (err) {
       console.warn('Backend order creation failed, falling back to local creation:', err.message);
@@ -751,6 +777,16 @@ export function AppProvider({ children }) {
     });
 
     setOrders(updatedOrders);
+    api.logActivity(
+      'refunds',
+      'REFUND_REQUESTED',
+      `Refund requested for Order #${orderNumber}. Reason: ${reason}`,
+      orderNumber
+    );
+    try {
+      localStorage.setItem('archon_last_sync', Date.now().toString());
+      window.dispatchEvent(new Event('archon_sync'));
+    } catch {}
     showToast(`Refund request submitted for #${orderNumber}. Under review by Archon Nell Engineering QA.`, 'info');
     refreshAllData().catch(() => {});
     return true;

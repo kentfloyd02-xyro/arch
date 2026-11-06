@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAdminShipmentsPageController } from '../../controllers/AdminShipmentsPageController';
-import { Truck, Search, Printer } from 'lucide-react';
+import { Truck, Search, Printer, RefreshCw } from 'lucide-react';
 
 export default function AdminShipmentsPage() {
   const {
@@ -9,7 +9,9 @@ export default function AdminShipmentsPage() {
     shipmentStatusFilter,
     setShipmentStatusFilter,
     printOrderDocument,
-    filteredShipments
+    filteredShipments,
+    handleRefresh,
+    isRefreshing
   } = useAdminShipmentsPageController();
 
   return (
@@ -27,6 +29,16 @@ export default function AdminShipmentsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="px-3 py-1.5 bg-[#07132c] hover:bg-[#142958] border border-[#142958] text-xs font-bold text-slate-200 rounded-xl flex items-center gap-1.5 transition-all active:scale-95"
+            title="Reload delivery dispatches from database"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+
           <select
             value={shipmentStatusFilter}
             onChange={(e) => setShipmentStatusFilter(e.target.value)}

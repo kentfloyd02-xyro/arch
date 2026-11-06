@@ -20,10 +20,20 @@ export function formatStatusLabel(status) {
 }
 
 export function useAdminShipmentsPageController() {
-  const { orders, showToast } = useApp();
+  const { orders, showToast, refreshAllData } = useApp();
 
   const [shipmentSearch, setShipmentSearch] = useState('');
   const [shipmentStatusFilter, setShipmentStatusFilter] = useState('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshAllData?.();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const printOrderDocument = (order, type) => {
     const isInvoice = type === 'invoice';
@@ -146,7 +156,9 @@ export function useAdminShipmentsPageController() {
     shipmentStatusFilter,
     setShipmentStatusFilter,
     printOrderDocument,
-    filteredShipments
+    filteredShipments,
+    handleRefresh,
+    isRefreshing
   };
 }
 

@@ -22,7 +22,7 @@ export function formatStatusLabel(status) {
 }
 
 export function useAdminOrdersPageController() {
-  const { orders, updateOrderStatus, cancelOrder, showToast } = useApp();
+  const { orders, updateOrderStatus, cancelOrder, showToast, refreshAllData } = useApp();
 
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
@@ -32,6 +32,16 @@ export function useAdminOrdersPageController() {
   );
   const [adminCancelOtherReason, setAdminCancelOtherReason] = useState('');
   const [withheldEmails, setWithheldEmails] = useState(new Set());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshAllData?.();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const updateWithheld = (list) => {
@@ -249,7 +259,9 @@ export function useAdminOrdersPageController() {
     isCancelDisabled,
     updateOrderStatus,
     printOrderDocument,
-    filteredOrders
+    filteredOrders,
+    handleRefresh,
+    isRefreshing
   };
 }
 

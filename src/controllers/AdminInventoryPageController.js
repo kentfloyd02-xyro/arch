@@ -57,10 +57,82 @@ export function useAdminInventoryPageController() {
       `Adjusted stock for ${target.title} (${delta > 0 ? `+${delta}` : delta} units). New stock: ${newStock}`, 
       target.title
     );
+    try {
+      localStorage.setItem('archon_last_sync', Date.now().toString());
+      window.dispatchEvent(new Event('archon_sync'));
+    } catch {}
     showToast(
       `Warehouse stock level adjusted (${delta > 0 ? `+${delta}` : delta}).`,
       'info'
     );
+  };
+
+  const handleArchiveProduct = async (productId) => {
+    const target = products.find((p) => p.id === productId);
+    if (!target) return;
+    const targetId = target.dbId || target._id || target.id;
+    const nextActive = target.isActive === false ? true : false;
+
+    const updated = products.map((p) =>
+      p.id === productId ? { ...p, isActive: nextActive } : p
+    );
+    setProducts(updated);
+
+    try {
+      await api.archiveProduct(targetId, nextActive);
+      api.logActivity(
+        'inventory',
+        nextActive ? 'PRODUCT_UNARCHIVED' : 'PRODUCT_ARCHIVED',
+        nextActive
+          ? `Product "${target.title}" restored to active catalog.`
+          : `Product "${target.title}" archived from catalog.`,
+        target.title
+      );
+      showToast(
+        nextActive
+          ? `Product "${target.title}" is now active in store.`
+          : `Product "${target.title}" has been archived.`,
+        'success'
+      );
+      try {
+        localStorage.setItem('archon_last_sync', Date.now().toString());
+        window.dispatchEvent(new Event('archon_sync'));
+      } catch {}
+    } catch (err) {
+      console.warn('Archive product error:', err.message);
+      showToast('Could not update product archive status.', 'error');
+    }
+  };
+
+  const handleDeleteProduct = async (productId) => {
+    const target = products.find((p) => p.id === productId);
+    if (!target) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete "${target.title}"? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    const targetId = target.dbId || target._id || target.id;
+    setProducts(products.filter((p) => p.id !== productId));
+
+    try {
+      await api.deleteProduct(targetId);
+      api.logActivity(
+        'inventory',
+        'PRODUCT_DELETED',
+        `Product "${target.title}" permanently deleted from catalog.`,
+        target.title
+      );
+      showToast(`Product "${target.title}" has been deleted.`, 'info');
+      try {
+        localStorage.setItem('archon_last_sync', Date.now().toString());
+        window.dispatchEvent(new Event('archon_sync'));
+      } catch {}
+    } catch (err) {
+      console.warn('Delete product error:', err.message);
+      showToast('Could not delete product from database.', 'error');
+    }
   };
 
   const handleProductSubmit = async (event) => {
@@ -276,6 +348,8 @@ export function useAdminInventoryPageController() {
     closeProductForm,
     handleImageUpload,
     handleStockAdjust,
+    handleArchiveProduct,
+    handleDeleteProduct,
     filteredProducts
   };
 }

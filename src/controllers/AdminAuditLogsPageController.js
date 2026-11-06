@@ -5,19 +5,31 @@ export function getAuditBadgeClass(action = '') {
   if (
     action.includes('LOCKED') ||
     action.includes('ABORTED') ||
-    action.includes('FAILED')
+    action.includes('FAILED') ||
+    action.includes('DELETED') ||
+    action.includes('CANCELLED')
   ) {
     return 'bg-rose-500/20 text-rose-300 border-rose-500/30';
   }
-  if (action.includes('SUCCESS') || action.includes('INITIALIZED')) {
+  if (
+    action.includes('SUCCESS') ||
+    action.includes('INITIALIZED') ||
+    action.includes('ORDER_CREATED') ||
+    action.includes('ORDER_PLACED') ||
+    action.includes('COMPLETED')
+  ) {
     return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
   }
   if (
     action.includes('RESET') ||
     action.includes('STOCK') ||
-    action.includes('REFUND')
+    action.includes('REFUND') ||
+    action.includes('WARNING')
   ) {
     return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+  }
+  if (action.includes('ARCHIVE')) {
+    return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
   }
   return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
 }
@@ -80,6 +92,30 @@ export function useAdminAuditLogsPageController() {
       userAgentDisplay: log.userAgent || 'Web Client'
     }));
 
+  const availableActions = Array.from(
+    new Set([
+      'LOGIN_2FA_SUCCESS',
+      'LOGIN_FAILED',
+      'LOGIN_TRUSTED_DEVICE',
+      'ACCOUNT_LOCKED_5_FAILED_ATTEMPTS',
+      'OTP_ABORTED_MAX_ATTEMPTS',
+      'ORDER_CREATED',
+      'ORDER_CANCELLED',
+      'DELIVERY_STATUS_UPDATED',
+      'REFUND_REQUESTED',
+      'REFUND_STATUS_UPDATED',
+      'STOCK_ADJUSTED',
+      'PRODUCT_CREATED',
+      'PRODUCT_UPDATED',
+      'PRODUCT_ARCHIVED',
+      'PRODUCT_UNARCHIVED',
+      'PRODUCT_DELETED',
+      'PASSWORD_RESET_SUCCESS',
+      'SYSTEM_SEED_INITIALIZED',
+      ...auditLogs.map((l) => l.action).filter(Boolean)
+    ])
+  ).sort();
+
   return {
     auditSearch,
     setAuditSearch,
@@ -87,7 +123,8 @@ export function useAdminAuditLogsPageController() {
     setAuditActionFilter,
     auditLoading,
     fetchAuditLogs,
-    filteredAuditLogs
+    filteredAuditLogs,
+    availableActions
   };
 }
 

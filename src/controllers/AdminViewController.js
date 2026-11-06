@@ -63,7 +63,7 @@ export function useAdminViewController() {
     { id: 'shipments', label: 'Delivery Status', icon: Truck, count: orders.length },
     { id: 'refunds', label: 'Returns & Refunds', icon: RotateCcw, count: refundOrdersCount },
     { id: 'support', label: 'Help Desk', icon: MessageCircle },
-    { id: 'users', label: 'Manage Users', icon: Users, count: totalUsersCount },
+    { id: 'users', label: 'Manage Users', icon: Users },
     { id: 'audit', label: 'Audit Logs', icon: ClipboardList }
   ];
 

@@ -30,6 +30,12 @@ export const productService = {
       body: JSON.stringify(data)
     }),
 
+  archiveProduct: (id, isActive) =>
+    request(`/shop/products/${id}/archive`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isActive })
+    }),
+
   deleteProduct: (id) =>
     request(`/shop/products/${id}`, {
       method: 'DELETE'

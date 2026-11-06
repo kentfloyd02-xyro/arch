@@ -10,7 +10,8 @@ export default function AdminAuditLogsPage() {
     setAuditActionFilter,
     auditLoading,
     fetchAuditLogs,
-    filteredAuditLogs
+    filteredAuditLogs,
+    availableActions
   } = useAdminAuditLogsPageController();
 
   return (
@@ -40,21 +41,14 @@ export default function AdminAuditLogsPage() {
           <select
             value={auditActionFilter}
             onChange={(e) => setAuditActionFilter(e.target.value)}
-            className="py-1.5 px-3 bg-[#07132c] text-xs font-semibold text-white rounded-xl border border-[#142958] focus:outline-none cursor-pointer"
+            className="py-1.5 px-3 bg-[#07132c] text-xs font-semibold text-white rounded-xl border border-[#142958] focus:outline-none cursor-pointer max-w-[190px] truncate"
           >
             <option value="all">All Actions</option>
-            <option value="LOGIN_2FA_SUCCESS">Login 2FA Success</option>
-            <option value="LOGIN_FAILED">Login Failed</option>
-            <option value="LOGIN_TRUSTED_DEVICE">Login Trusted Device</option>
-            <option value="ACCOUNT_LOCKED_5_FAILED_ATTEMPTS">Account Locked (5 Attempts)</option>
-            <option value="OTP_ABORTED_MAX_ATTEMPTS">OTP Aborted (5 Attempts)</option>
-            <option value="DELIVERY_STATUS_UPDATED">Delivery Status Updated</option>
-            <option value="ORDER_CREATED">Order Created</option>
-            <option value="ORDER_PLACED">Order Placed</option>
-            <option value="REFUND_STATUS_UPDATED">Refund Status Updated</option>
-            <option value="PASSWORD_RESET_SUCCESS">Password Reset</option>
-            <option value="STOCK_ADJUSTED">Stock Adjusted</option>
-            <option value="SYSTEM_SEED_INITIALIZED">System Seed Initialized</option>
+            {availableActions.map((act) => (
+              <option key={act} value={act}>
+                {act.replace(/_/g, ' ')}
+              </option>
+            ))}
           </select>
 
           <div className="relative">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAdminInventoryPageController } from '../../controllers/AdminInventoryPageController';
-import { Package, Search, X, Plus, Minus } from 'lucide-react';
+import { Package, Search, X, Plus, Minus, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
 
 export default function AdminInventoryPage() {
   const {
@@ -16,6 +16,8 @@ export default function AdminInventoryPage() {
     closeProductForm,
     handleImageUpload,
     handleStockAdjust,
+    handleArchiveProduct,
+    handleDeleteProduct,
     filteredProducts
   } = useAdminInventoryPageController();
 
@@ -241,6 +243,11 @@ export default function AdminInventoryPage() {
                   >
                     {product.stockBadgeLabel}
                   </span>
+                  {product.isActive === false && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded border bg-purple-500/20 text-purple-300 border-purple-500/30">
+                      Archived
+                    </span>
+                  )}
                 </div>
                 <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                   SKU: {product.sku || product.id} · Cat: {product.category}
@@ -251,22 +258,24 @@ export default function AdminInventoryPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 border-[#142958] pt-2 sm:pt-0">
-              <div className="flex items-center gap-1.5 bg-[#0b1b3d] px-2.5 py-1 rounded-xl border border-[#142958]">
+            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 border-t sm:border-t-0 border-[#142958] pt-2 sm:pt-0">
+              <div className="flex items-center gap-1.5 bg-[#0b1b3d] px-2 py-1 rounded-xl border border-[#142958]">
                 <button
                   type="button"
                   onClick={() => handleStockAdjust(product.id, -1)}
                   className="w-5 h-5 rounded flex items-center justify-center bg-[#07132c] text-slate-300 hover:text-white"
+                  title="Decrease stock by 1"
                 >
                   <Minus size={11} />
                 </button>
-                <span className="font-mono font-bold text-xs text-white px-2">
+                <span className="font-mono font-bold text-xs text-white px-1.5">
                   {product.stock}
                 </span>
                 <button
                   type="button"
                   onClick={() => handleStockAdjust(product.id, 1)}
                   className="w-5 h-5 rounded flex items-center justify-center bg-[#07132c] text-slate-300 hover:text-white"
+                  title="Increase stock by 1"
                 >
                   <Plus size={11} />
                 </button>
@@ -275,9 +284,33 @@ export default function AdminInventoryPage() {
               <button
                 type="button"
                 onClick={() => startProductEdit(product)}
-                className="px-2.5 py-1.5 rounded-xl border border-[#142958] text-[10px] font-bold text-slate-300 hover:bg-[#142958] hover:text-white transition-colors"
+                className="px-2.5 py-1 rounded-xl border border-[#142958] text-[10px] font-bold text-slate-300 hover:bg-[#142958] hover:text-white transition-colors cursor-pointer"
               >
                 Edit
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleArchiveProduct(product.id)}
+                className={`px-2 py-1 rounded-xl border text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+                  product.isActive === false
+                    ? 'border-purple-500/40 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20'
+                    : 'border-[#142958] text-slate-300 hover:bg-[#142958] hover:text-white'
+                }`}
+                title={product.isActive === false ? 'Unarchive and restore to store' : 'Archive from customer view'}
+              >
+                {product.isActive === false ? <ArchiveRestore size={11} /> : <Archive size={11} />}
+                <span>{product.isActive === false ? 'Unarchive' : 'Archive'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDeleteProduct(product.id)}
+                className="px-2 py-1 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                title="Permanently delete product"
+              >
+                <Trash2 size={11} />
+                <span>Delete</span>
               </button>
             </div>
           </div>
