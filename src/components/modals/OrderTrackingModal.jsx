@@ -150,15 +150,23 @@ export default function OrderTrackingModal() {
                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                       isRejected
                         ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                        : currentOrder.status === 'REFUNDED' || currentOrder.refundDetails?.refundStatus === 'APPROVED'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : currentOrder.status === 'REFUND_REQUESTED' || currentOrder.refundDetails?.refundStatus === 'PENDING_REVIEW'
+                        ? 'bg-purple-100 text-purple-800 border border-purple-300'
                         : currentOrder.status === 'DELIVERED'
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : currentOrder.status === 'CANCELLED'
                         ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                        : currentOrder.status === 'REFUNDED' || currentOrder.status === 'REFUND_REQUESTED'
-                        ? 'bg-purple-100 text-purple-800 border border-purple-300'
                         : 'bg-blue-100 text-blue-800 border border-blue-300'
                     }`}>
-                      {isRejected ? 'Return Rejected' : currentOrder.status}
+                      {isRejected
+                        ? 'Return Rejected'
+                        : currentOrder.status === 'REFUNDED' || currentOrder.refundDetails?.refundStatus === 'APPROVED'
+                        ? 'Return Approved'
+                        : currentOrder.status === 'REFUND_REQUESTED' || currentOrder.refundDetails?.refundStatus === 'PENDING_REVIEW'
+                        ? 'Return Under Review'
+                        : currentOrder.status}
                     </span>
                   </div>
                   <div className="text-xs text-slate-500 mt-1">

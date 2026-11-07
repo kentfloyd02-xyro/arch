@@ -11,7 +11,8 @@ import {
   X,
   AlertTriangle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 
 const panelClass = 'rounded-2xl border border-[#142958] bg-[#0b1b3d] p-4 shadow-lg sm:p-6';
@@ -187,6 +188,19 @@ export default function CustomerOrdersPage() {
                   </div>
                   <p className="text-[10px] text-slate-300">
                     ⚠️ <strong>1-Trial Limit Policy:</strong> Under Archon Nell store policy, each delivered order item has a single (1) return evaluation trial. Because this claim was reviewed and rejected, return requests for this order have been permanently closed.
+                  </p>
+                </div>
+              )}
+
+              {/* Approval Notice Banner */}
+              {order.isApprovedRefund && (
+                <div className="rounded-xl bg-emerald-500/15 border border-emerald-500/40 p-3.5 text-xs text-emerald-200 shadow-md space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-emerald-300">
+                    <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                    <span className="text-xs uppercase tracking-wide">Return &amp; Refund Request Approved</span>
+                  </div>
+                  <p className="text-[11px] text-slate-200">
+                    Your claim has been reviewed and accepted by Archon Nell Engineering QA. The refund has been authorized and inventory restocked.
                   </p>
                 </div>
               )}

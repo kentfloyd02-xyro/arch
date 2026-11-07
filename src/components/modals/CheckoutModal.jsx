@@ -21,6 +21,7 @@ export default function CheckoutModal() {
     setIsTrackingOpen,
     setSelectedOrderForTracking,
     cart,
+    products,
     cartSubtotal,
     effectiveDiscount,
     discountType,
@@ -153,6 +154,29 @@ export default function CheckoutModal() {
     if (!cart.length) { 
       showToast('Your cart is empty.', 'warning'); 
       return; 
+    }
+
+    // Verify stock availability with live catalog
+    const outOfStockItem = cart.find(item => {
+      const prodId = item.product.id || item.product.customId;
+      const live = products.find(p => (p.id === prodId || p.customId === prodId));
+      const stock = live !== undefined ? Number(live.stock ?? 0) : Number(item.product.stock ?? 0);
+      return stock <= 0;
+    });
+    if (outOfStockItem) {
+      showToast(`Cannot place order: "${outOfStockItem.product.title}" is out of stock. Please remove it from your cart.`, 'error');
+      return;
+    }
+
+    const exceedingItem = cart.find(item => {
+      const prodId = item.product.id || item.product.customId;
+      const live = products.find(p => (p.id === prodId || p.customId === prodId));
+      const stock = live !== undefined ? Number(live.stock ?? 0) : Number(item.product.stock ?? 0);
+      return item.quantity > stock;
+    });
+    if (exceedingItem) {
+      showToast(`Cannot place order: Requested quantity for "${exceedingItem.product.title}" exceeds available stock.`, 'warning');
+      return;
     }
     if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim()) {
       showToast('Please complete all required delivery details.', 'warning');

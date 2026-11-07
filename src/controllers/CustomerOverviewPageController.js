@@ -44,27 +44,46 @@ export function useCustomerOverviewPageController() {
       : 'Member';
 
   const recentOrders = customerOrders.slice(0, 3).map((order) => {
-    const isDelivered = order.status === 'DELIVERED';
-    const isCancelled = order.status === 'CANCELLED';
-    const statusBadgeClass = isDelivered
-      ? 'bg-emerald-500/15 text-emerald-300'
-      : isCancelled
-      ? 'bg-rose-500/15 text-rose-300'
-      : 'bg-blue-500/15 text-blue-200';
+    const rawStatus = String(order.status || '').toUpperCase();
+    const rDetails = order.refundDetails || {};
+    const rStatus = String(rDetails.refundStatus || '').toUpperCase();
+    const isRejectedRefund = rawStatus === 'REFUND_REJECTED' || rStatus === 'REJECTED' || Boolean(rDetails.rejectedReason);
+    const isApprovedRefund = rawStatus === 'REFUNDED' || rStatus === 'APPROVED';
+    const isRefundRequested = (rawStatus === 'REFUND_REQUESTED' || rStatus === 'PENDING_REVIEW') && !isRejectedRefund && !isApprovedRefund;
+    const isDelivered = rawStatus === 'DELIVERED';
+    const isCancelled = rawStatus === 'CANCELLED';
 
-    const statusLabels = {
-      CONFIRMED: 'Processing',
-      PREPARING: 'Preparing',
-      IN_TRANSIT: 'Shipped · Out for delivery',
-      DELIVERED: 'Delivered',
-      CANCELLED: 'Cancelled',
-      REFUND_REQUESTED: 'Return under review',
-      REFUNDED: 'Refund completed'
-    };
+    let statusBadgeClass = 'bg-blue-500/15 text-blue-200';
+    let statusLabel = rawStatus;
+
+    if (isRejectedRefund) {
+      statusLabel = 'Return rejected';
+      statusBadgeClass = 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
+    } else if (isApprovedRefund) {
+      statusLabel = 'Return approved';
+      statusBadgeClass = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+    } else if (isRefundRequested) {
+      statusLabel = 'Return under review';
+      statusBadgeClass = 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
+    } else if (isCancelled) {
+      statusLabel = 'Cancelled';
+      statusBadgeClass = 'bg-rose-500/15 text-rose-300';
+    } else if (isDelivered) {
+      statusLabel = 'Delivered';
+      statusBadgeClass = 'bg-emerald-500/15 text-emerald-300';
+    } else {
+      const statusLabels = {
+        CONFIRMED: 'Processing',
+        PREPARING: 'Preparing',
+        IN_TRANSIT: 'Shipped · Out for delivery'
+      };
+      statusLabel = statusLabels[rawStatus] || rawStatus;
+      statusBadgeClass = 'bg-blue-500/15 text-blue-200';
+    }
 
     return {
       orderNumber: order.orderNumber,
-      statusLabel: statusLabels[order.status] || order.status,
+      statusLabel,
       statusBadgeClass,
       formattedDate: new Date(order.date || order.createdAt).toLocaleDateString(),
       formattedTotal: formatMoney(order.totalAmount),

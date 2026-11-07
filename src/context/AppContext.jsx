@@ -98,6 +98,7 @@ export function AppProvider({ children }) {
 
       let storedRefunds = {};
       let storedRatings = {};
+      let storedRefundsModified = false;
       try {
         storedRefunds = JSON.parse(localStorage.getItem('archon_refund_status') || '{}');
         storedRatings = JSON.parse(localStorage.getItem('archon_order_ratings') || '{}');
@@ -113,17 +114,75 @@ export function AppProvider({ children }) {
           const rawSubtotal = Number(o.subtotal ?? 0);
           const rawShipping = Number(o.shippingFee ?? o.shipping_fee ?? 0);
           const rawDiscount = Number(o.discountAmount ?? o.discount_amount ?? o.discount ?? 0);
-          // Use actual DB order status (not refund status) for timeline computation
-          const orderActualStatus = (o.status || o.delivery_status || 'CONFIRMED').toUpperCase();
-          const rawStatus = (localRefund?.status || o.status || o.delivery_status || 'CONFIRMED').toUpperCase();
-          let parsedRefundDetails = localRefund?.refundDetails || null;
-          if (!parsedRefundDetails) {
-            if (o.refund_details) {
-              parsedRefundDetails = typeof o.refund_details === 'string' ? JSON.parse(o.refund_details) : o.refund_details;
-            } else if (o.refundDetails) {
-              parsedRefundDetails = o.refundDetails;
-            }
+
+          // 1. Parse DB refund details
+          let dbRefundDetails = null;
+          if (o.refund_details) {
+            dbRefundDetails = typeof o.refund_details === 'string' ? JSON.parse(o.refund_details) : o.refund_details;
+          } else if (o.refundDetails) {
+            dbRefundDetails = o.refundDetails;
           }
+
+          const dbStatus = String(o.status || o.delivery_status || '').toUpperCase();
+          const dbRefundStatus = String(dbRefundDetails?.refundStatus || dbRefundDetails?.status || '').toUpperCase();
+
+          // 2. Admin final decisions from DB take supreme precedence!
+          const dbIsApproved = dbStatus === 'REFUNDED' || dbRefundStatus === 'APPROVED';
+          const dbIsRejected = dbStatus === 'REFUND_REJECTED' || dbRefundStatus === 'REJECTED' || Boolean(dbRefundDetails?.rejectedReason);
+          const dbIsRequested = dbStatus === 'REFUND_REQUESTED' || dbRefundStatus === 'PENDING_REVIEW';
+
+          let rawStatus = dbStatus || 'CONFIRMED';
+          let parsedRefundDetails = dbRefundDetails;
+
+          if (dbIsApproved) {
+            rawStatus = 'REFUNDED';
+            parsedRefundDetails = {
+              ...(localRefund?.refundDetails || {}),
+              ...(dbRefundDetails || {}),
+              refundStatus: 'APPROVED',
+              trialUsed: true
+            };
+            if (localRefund?.status !== 'REFUNDED' || localRefund?.refundDetails?.refundStatus !== 'APPROVED') {
+              storedRefunds[orderNum] = {
+                status: 'REFUNDED',
+                deliveryStatus: 'REFUNDED',
+                refundDetails: parsedRefundDetails
+              };
+              storedRefundsModified = true;
+            }
+          } else if (dbIsRejected) {
+            rawStatus = 'REFUND_REJECTED';
+            parsedRefundDetails = {
+              ...(localRefund?.refundDetails || {}),
+              ...(dbRefundDetails || {}),
+              refundStatus: 'REJECTED',
+              rejectedReason: dbRefundDetails?.rejectedReason || localRefund?.refundDetails?.rejectedReason || 'Claim criteria not met or invalid proof',
+              trialUsed: true
+            };
+            if (localRefund?.status !== 'REFUND_REJECTED' || localRefund?.refundDetails?.refundStatus !== 'REJECTED') {
+              storedRefunds[orderNum] = {
+                status: 'REFUND_REJECTED',
+                deliveryStatus: 'REFUND_REJECTED',
+                refundDetails: parsedRefundDetails
+              };
+              storedRefundsModified = true;
+            }
+          } else if (dbIsRequested) {
+            rawStatus = 'REFUND_REQUESTED';
+            parsedRefundDetails = {
+              ...(localRefund?.refundDetails || {}),
+              ...(dbRefundDetails || {}),
+              refundStatus: 'PENDING_REVIEW'
+            };
+          } else if (localRefund?.status) {
+            rawStatus = localRefund.status.toUpperCase();
+            parsedRefundDetails = localRefund.refundDetails || dbRefundDetails;
+          }
+
+          // Use actual DB delivery status for tracking timeline (not refund status)
+          const orderActualStatus = ['REFUNDED', 'REFUND_REJECTED', 'REFUND_REQUESTED'].includes(dbStatus)
+            ? 'DELIVERED'
+            : (dbStatus || 'CONFIRMED');
 
           return {
             ...o,
@@ -169,6 +228,11 @@ export function AppProvider({ children }) {
             date: o.date || (o.createdAt ? new Date(o.createdAt).toISOString() : (o.created_at ? new Date(o.created_at).toISOString() : new Date().toISOString()))
           };
         }));
+        if (storedRefundsModified) {
+          try {
+            localStorage.setItem('archon_refund_status', JSON.stringify(storedRefunds));
+          } catch {}
+        }
       } else {
         setOrders([]);
       }
@@ -237,13 +301,22 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     const handleStorageOrSync = () => {
-      refreshAllData();
+      refreshAllData().catch(() => {});
+    };
+    const handleFocusOrVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAllData().catch(() => {});
+      }
     };
     window.addEventListener('storage', handleStorageOrSync);
     window.addEventListener('archon_sync', handleStorageOrSync);
+    window.addEventListener('visibilitychange', handleFocusOrVisibility);
+    window.addEventListener('focus', handleFocusOrVisibility);
     return () => {
       window.removeEventListener('storage', handleStorageOrSync);
       window.removeEventListener('archon_sync', handleStorageOrSync);
+      window.removeEventListener('visibilitychange', handleFocusOrVisibility);
+      window.removeEventListener('focus', handleFocusOrVisibility);
     };
   }, [refreshAllData]);
 
@@ -306,6 +379,31 @@ export function AppProvider({ children }) {
       } catch {}
     }
   }, [cart, currentUser]);
+
+  // Keep cart items' product stock and metadata synchronized with live catalog
+  useEffect(() => {
+    if (!products || products.length === 0) return;
+    setCart(prevCart => {
+      let changed = false;
+      const updated = prevCart.map(item => {
+        const prodId = item.product.id || item.product.customId;
+        const live = products.find(p => (p.id === prodId || p.customId === prodId));
+        if (live && Number(live.stock) !== Number(item.product.stock)) {
+          changed = true;
+          return {
+            ...item,
+            product: {
+              ...item.product,
+              ...live,
+              stock: Number(live.stock)
+            }
+          };
+        }
+        return item;
+      });
+      return changed ? updated : prevCart;
+    });
+  }, [products]);
 
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState(null);
@@ -732,7 +830,9 @@ export function AppProvider({ children }) {
       try {
         localStorage.setItem('archon_last_sync', Date.now().toString());
         window.dispatchEvent(new Event('archon_sync'));
+        window.dispatchEvent(new Event('storage'));
       } catch {}
+      refreshAllData().catch(() => {});
 
       return savedOrder;
     } catch (err) {
@@ -926,10 +1026,29 @@ export function AppProvider({ children }) {
 
   const approveRefund = async (orderNumber, restoreStock = true) => {
     const targetOrder = orders.find(o => o.orderNumber === orderNumber);
-    if (!targetOrder || targetOrder.status !== 'REFUND_REQUESTED') {
+    const rStatus = String(targetOrder?.refundDetails?.refundStatus || targetOrder?.status || '').toUpperCase();
+    if (!targetOrder || (targetOrder.status !== 'REFUND_REQUESTED' && rStatus !== 'PENDING_REVIEW')) {
       showToast('Only pending refund requests can be approved.', 'warning');
       return false;
     }
+
+    const approvedRefundDetails = {
+      ...(targetOrder.refundDetails || {}),
+      refundStatus: 'APPROVED',
+      approvedAt: new Date().toISOString(),
+      trialUsed: true
+    };
+
+    try {
+      const stored = JSON.parse(localStorage.getItem('archon_refund_status') || '{}');
+      stored[orderNumber] = {
+        status: 'REFUNDED',
+        deliveryStatus: 'REFUNDED',
+        refundDetails: approvedRefundDetails
+      };
+      localStorage.setItem('archon_refund_status', JSON.stringify(stored));
+      localStorage.setItem('archon_last_sync', Date.now().toString());
+    } catch {}
 
     try {
       const actor = currentUser ? { email: currentUser.email, name: currentUser.name, role: currentUser.role, id: currentUser._id || currentUser.id } : null;
@@ -942,7 +1061,7 @@ export function AppProvider({ children }) {
     if (restoreStock) {
       const updatedProducts = products.map(prod => {
         const prodId = prod.id || prod.customId;
-        const orderItem = targetOrder.items.find(i => (i.id === prodId || i.customId === prodId));
+        const orderItem = targetOrder.items?.find(i => (i.id === prodId || i.customId === prodId || i.productId === prodId));
         if (orderItem) {
           return { ...prod, stock: prod.stock + orderItem.quantity, sold: Math.max(0, prod.sold - orderItem.quantity) };
         }
@@ -956,11 +1075,8 @@ export function AppProvider({ children }) {
         return {
           ...o,
           status: 'REFUNDED',
-          refundDetails: {
-            ...o.refundDetails,
-            refundStatus: 'APPROVED',
-            approvedAt: new Date().toISOString()
-          }
+          deliveryStatus: 'REFUNDED',
+          refundDetails: approvedRefundDetails
         };
       }
       return o;
@@ -968,7 +1084,12 @@ export function AppProvider({ children }) {
 
     setOrders(updatedOrders);
     showToast(`Refund approved for #${orderNumber}.`, 'success');
+    try {
+      window.dispatchEvent(new Event('archon_sync'));
+      window.dispatchEvent(new Event('storage'));
+    } catch {}
     refreshAllData().catch(() => {});
+    return true;
   };
 
   const rejectRefund = async (orderNumber, rejectReason = 'Inspection criteria not met or invalid proof') => {
@@ -980,20 +1101,23 @@ export function AppProvider({ children }) {
 
     const actor = currentUser ? { email: currentUser.email, name: currentUser.name, role: currentUser.role, id: currentUser._id || currentUser.id } : null;
 
+    const rejectedDetails = {
+      ...(targetOrder.refundDetails || {}),
+      refundStatus: 'REJECTED',
+      rejectedReason: rejectReason,
+      rejectedAt: new Date().toISOString(),
+      trialUsed: true
+    };
+
     try {
       const stored = JSON.parse(localStorage.getItem('archon_refund_status') || '{}');
       stored[orderNumber] = {
         status: 'REFUND_REJECTED',
         deliveryStatus: 'REFUND_REJECTED',
-        refundDetails: {
-          ...(targetOrder.refundDetails || {}),
-          refundStatus: 'REJECTED',
-          rejectedReason: rejectReason,
-          rejectedAt: new Date().toISOString(),
-          trialUsed: true
-        }
+        refundDetails: rejectedDetails
       };
       localStorage.setItem('archon_refund_status', JSON.stringify(stored));
+      localStorage.setItem('archon_last_sync', Date.now().toString());
     } catch {}
 
     try {
@@ -1009,13 +1133,7 @@ export function AppProvider({ children }) {
           ...o,
           status: 'REFUND_REJECTED',
           deliveryStatus: 'REFUND_REJECTED',
-          refundDetails: {
-            ...(o.refundDetails || {}),
-            refundStatus: 'REJECTED',
-            rejectedReason: rejectReason,
-            rejectedAt: new Date().toISOString(),
-            trialUsed: true
-          }
+          refundDetails: rejectedDetails
         };
       }
       return o;
@@ -1024,8 +1142,8 @@ export function AppProvider({ children }) {
     setOrders(updatedOrders);
     showToast(`Refund claim rejected for Order #${orderNumber}. Customer notified.`, 'info');
     try {
-      localStorage.setItem('archon_last_sync', Date.now().toString());
       window.dispatchEvent(new Event('archon_sync'));
+      window.dispatchEvent(new Event('storage'));
     } catch {}
     refreshAllData().catch(() => {});
     return true;

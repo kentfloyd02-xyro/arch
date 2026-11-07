@@ -107,16 +107,18 @@ export function useAdminShipmentsPageController() {
       const isShipped = statusKey === 'shipped';
       const isPreparing = statusKey === 'preparing';
       const isCancelled = order.status === 'CANCELLED';
+      const isRejected = order.status === 'REFUND_REJECTED';
 
       let statusDisplay = formatStatusLabel(order.status);
       if (order.status === 'REFUND_REQUESTED') statusDisplay = 'Return Under Review';
-      if (order.status === 'REFUNDED') statusDisplay = 'Refund Processed';
+      if (order.status === 'REFUNDED') statusDisplay = 'Return Approved';
+      if (order.status === 'REFUND_REJECTED') statusDisplay = 'Return Rejected';
 
-      const statusBadgeClass = isDelivered
+      const statusBadgeClass = isDelivered || order.status === 'REFUNDED'
         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-        : isCancelled
+        : isCancelled || isRejected
         ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-        : ['REFUND_REQUESTED', 'REFUNDED'].includes(order.status)
+        : order.status === 'REFUND_REQUESTED'
         ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
         : isShipped
         ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'

@@ -117,8 +117,12 @@ export function useCustomerOrdersPageController() {
         rSt === 'REJECTED' ||
         Boolean(rDet.rejectedReason) ||
         Boolean(rDet.trialUsed && rawStatus !== 'REFUNDED');
+      const isAppr = rawStatus === 'REFUNDED' || rSt === 'APPROVED';
+      const isReq = (rawStatus === 'REFUND_REQUESTED' || rSt === 'PENDING_REVIEW') && !isRej && !isAppr;
 
       if (statusFilter === 'REFUND_REJECTED') return isRej;
+      if (statusFilter === 'REFUNDED') return isAppr;
+      if (statusFilter === 'REFUND_REQUESTED') return isReq;
       return rawStatus === statusFilter;
     })
     .map((order) => {
@@ -161,7 +165,7 @@ export function useCustomerOrdersPageController() {
         statusLabel = 'Return rejected';
         statusBadgeClass = 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
       } else if (isApprovedRefund) {
-        statusLabel = 'Refund completed';
+        statusLabel = 'Return approved';
         statusBadgeClass = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
       } else if (isRefundRequested) {
         statusLabel = 'Return under review';
